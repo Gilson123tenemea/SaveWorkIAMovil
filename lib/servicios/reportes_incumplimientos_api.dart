@@ -28,20 +28,22 @@ class ReportesIncumplimientosApi {
     String? codigoTrabajador,
     int? idTrabajador,
   }) async {
-    final query = Uri(queryParameters: {
-      'cedula': cedula,
-      'codigo_trabajador': codigoTrabajador,
-      'id_trabajador': idTrabajador?.toString()
-    });
+    final queryParameters = <String, String>{};
 
-    final url = Uri.parse('$baseUrl/reportes/incumplimientos/trabajador${query.toString()}');
+    if (cedula != null) queryParameters['cedula'] = cedula;
+    if (codigoTrabajador != null) queryParameters['codigo_trabajador'] = codigoTrabajador;
+    if (idTrabajador != null) queryParameters['id_trabajador'] = idTrabajador.toString();
+
+    // ✅ CORRECCIÓN: Usar .replace(queryParameters: ...) en lugar de .toString()
+    final url = Uri.parse('$baseUrl/reportes/incumplimientos/trabajador')
+        .replace(queryParameters: queryParameters);
 
     final resp = await http.get(url);
 
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body);
     } else {
-      throw Exception('Error obteniendo historial de trabajador');
+      throw Exception('Error obteniendo historial de trabajador: ${resp.statusCode} - ${resp.body}');
     }
   }
 

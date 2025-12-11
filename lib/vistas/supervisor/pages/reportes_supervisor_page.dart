@@ -308,12 +308,18 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
         cedula: cedula,
       );
 
-      print("=============== RESPUESTA DE API ===============");
-      print(data); // 👈 VE QUÉ DEVUELVE LA API
-      print("==============================================");
+      print("=============== RESPUESTA COMPLETA DE API ===============");
+      print(jsonEncode(data)); // Imprime en JSON bonito
+      print("=========================================================");
 
       final historial = data["historial"] as List<dynamic>;
       final stats = data["estadisticas"];
+
+      // Imprime el primer elemento del historial para ver su estructura
+      if (historial.isNotEmpty) {
+        print("PRIMER ELEMENTO DEL HISTORIAL:");
+        print(jsonEncode(historial[0]));
+      }
 
       final nombreCompleto = historial.isNotEmpty
           ? "${historial[0]["trabajador"]["nombre"]} ${historial[0]["trabajador"]["apellido"]}"
