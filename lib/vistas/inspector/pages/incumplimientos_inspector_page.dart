@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import '../../../sesion/user_session.dart';
 import '../../../controlador/inspector/reportes_inspector_controller.dart';
 import '../../../controlador/inspector/evidencias_fallo_controller.dart';
+import 'historial_inspector_dialog.dart';
 
 class IncumplimientosInspectorPage extends StatefulWidget {
   const IncumplimientosInspectorPage({super.key});
@@ -256,6 +257,9 @@ class _IncumplimientosInspectorPageState
         ? Colors.green.shade300
         : Colors.red.shade300;
 
+    final tieneObservacion = evidencia["observaciones"] != null &&
+        evidencia["observaciones"].toString().isNotEmpty;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -275,6 +279,7 @@ class _IncumplimientosInspectorPageState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // HEADER CON FOTO E INFO
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -393,8 +398,49 @@ class _IncumplimientosInspectorPageState
               ],
             ),
             const SizedBox(height: 18),
+            // GRID DE IMPLEMENTOS
             _buildImplementosGrid(evidencia["detalle"] ?? ""),
             const SizedBox(height: 16),
+            // MOSTRAR OBSERVACIONES SI EXISTEN
+            if (tieneObservacion)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.blue.shade200, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.comment,
+                            color: Colors.blue.shade600, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Observación",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      evidencia["observaciones"].toString(),
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // BOTONES
             Row(
               children: [
                 Expanded(
@@ -406,7 +452,9 @@ class _IncumplimientosInspectorPageState
                     icon: const Icon(Icons.note_add, size: 18),
                     label: const Text("Observación"),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade600,
+                      backgroundColor: tieneObservacion
+                          ? Colors.grey
+                          : Colors.blue.shade600,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -420,11 +468,30 @@ class _IncumplimientosInspectorPageState
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        await evidenciasController.actualizarEvidencia(
-                          idEvidencia: evidencia["id_evidencia"],
-                          estado: "REVISADO",
-                        );
-                        cargarDatos();
+                        try {
+                          await evidenciasController.actualizarEvidencia(
+                            idEvidencia: evidencia["id_evidencia"],
+                            estado: "REVISADO",
+                          );
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content:
+                              Text("Marcado como revisado correctamente"),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+
+                          cargarDatos();
+                        } catch (e) {
+                          print("Error detallado: $e");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Error: ${e.toString()}"),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.check_circle, size: 18),
                       label: const Text("Revisado"),
@@ -438,7 +505,7 @@ class _IncumplimientosInspectorPageState
                       ),
                     ),
                   ),
-                const SizedBox(width: 10),
+                if (estado != "REVISADO") const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () =>
@@ -446,7 +513,7 @@ class _IncumplimientosInspectorPageState
                     icon: const Icon(Icons.history, size: 18),
                     label: const Text("Historial"),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Color(0xff073375),
+                      foregroundColor: const Color(0xff073375),
                       side: const BorderSide(
                         color: Color(0xff073375),
                         width: 1.5,
@@ -592,13 +659,42 @@ class _IncumplimientosInspectorPageState
           ),
           ElevatedButton.icon(
             onPressed: () async {
-              await evidenciasController.actualizarEvidencia(
-                idEvidencia: evidenciaSeleccionada!,
-                observaciones: observacionController.text,
-              );
-              observacionController.clear();
-              Navigator.pop(context);
-              cargarDatos();
+              if (observacionController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Por favor escribe una observación"),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                await evidenciasController.actualizarEvidencia(
+                  idEvidencia: evidenciaSeleccionada!,
+                  observaciones: observacionController.text,
+                );
+                observacionController.clear();
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Observación guardada correctamente"),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+
+                cargarDatos();
+              } catch (e) {
+                Navigator.pop(context);
+                print("Error observacion: $e");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Error al guardar: ${e.toString()}"),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             icon: const Icon(Icons.save, size: 18),
             label: const Text("Guardar"),
@@ -616,8 +712,61 @@ class _IncumplimientosInspectorPageState
   }
 
   Future<void> _mostrarHistorial(String cedula) async {
-    final data = await reportesController.obtenerHistorialTrabajador(cedula);
-    // Implementar diálogo de historial si es necesario
+    try {
+      final data = await reportesController.obtenerHistorialTrabajador(cedula);
+
+      print("=============== RESPUESTA COMPLETA DE API ===============");
+      print(jsonEncode(data));
+      print("=========================================================");
+
+      // Validar y separar historial y estadísticas
+      late List<dynamic> historial;
+      late Map<String, dynamic>? stats;
+
+      if (data is List<dynamic>) {
+        historial = data;
+        stats = null;
+      } else if (data is Map<String, dynamic>) {
+        final dataMap = data as Map<String, dynamic>;
+        historial = (dataMap["historial"] ?? []) as List<dynamic>;
+        stats = dataMap["estadisticas"] as Map<String, dynamic>?;
+      } else {
+        historial = [];
+        stats = null;
+      }
+
+      if (historial.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("No hay historial disponible"),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final nombreCompleto = historial.isNotEmpty
+          ? "${historial[0]["trabajador"]["nombre"]} ${historial[0]["trabajador"]["apellido"]}"
+          : "Trabajador";
+
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => HistorialInspectorDialog(
+          nombre: nombreCompleto,
+          historial: historial,
+          stats: stats,
+        ),
+      );
+    } catch (e) {
+      print("Error al cargar historial: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
