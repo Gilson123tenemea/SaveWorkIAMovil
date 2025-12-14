@@ -4,9 +4,9 @@ import '../config/api.dart';
 
 class DashboardInspectorApi {
 
-  Future<Map<String, dynamic>> obtenerDashboardInspector(int idZona) async {
+  Future<Map<String, dynamic>> obtenerDashboardInspector(int idInspector) async {
     final url = Uri.parse(
-        "${ApiConfig.baseUrl}/dashboard-inspector/$idZona"
+        "${ApiConfig.baseUrl}/dashboard-inspector/$idInspector"
     );
 
     final response = await http.get(
@@ -19,7 +19,7 @@ class DashboardInspectorApi {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception("❌ Error al obtener dashboard inspector");
+      throw Exception("❌ Error al obtener dashboard del inspector");
     }
   }
 }

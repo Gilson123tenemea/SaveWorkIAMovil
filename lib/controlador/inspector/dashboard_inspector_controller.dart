@@ -4,7 +4,7 @@ class DashboardInspectorController {
 
   final DashboardInspectorApi api = DashboardInspectorApi();
 
-  Future<Map<String, dynamic>> obtenerDatosDashboard(int idZona) async {
-    return await api.obtenerDashboardInspector(idZona);
+  Future<Map<String, dynamic>> obtenerDatosDashboard(int idInspector) async {
+    return await api.obtenerDashboardInspector(idInspector);
   }
 }
