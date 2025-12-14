@@ -43,9 +43,7 @@ class HistorialInspectorDialog extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ====================================================
-            // ENCABEZADO
-            // ====================================================
+            // ================= ENCABEZADO =================
             Row(
               children: [
                 Expanded(
@@ -80,39 +78,35 @@ class HistorialInspectorDialog extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // ====================================================
-            // ESTADÍSTICAS
-            // ====================================================
+            // ================= ESTADÍSTICAS =================
             if (stats != null)
               Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      _statCard("Total", stats!["total"]?.toString() ?? "0"),
                       _statCard(
-                        "Total",
-                        stats!["total"]?.toString() ?? "0",
-                      ),
-                      _statCard(
-                        "Revisados",
-                        stats!["revisados"]?.toString() ?? "0",
+                        "Cumple",
+                        stats!["cumple"]?.toString() ?? "0",
                         color: Colors.green,
                       ),
+
                       _statCard(
-                        "Pendientes",
-                        stats!["pendientes"]?.toString() ?? "0",
+                        "Incumple",
+                        stats!["incumple"]?.toString() ?? "0",
                         color: Colors.red,
                       ),
-                      _statCard(
-                        "Tasa",
-                        "${stats!["tasa"] ?? 0.0}%",
-                        color: Colors.blue,
-                      ),
+
+                      _statCard("Tasa",
+                          "${stats!["tasa"] ?? 0.0}%",
+                          color: Colors.blue),
                     ],
                   ),
                   const SizedBox(height: 20),
                 ],
               ),
+
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -124,7 +118,6 @@ class HistorialInspectorDialog extends StatelessWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // FECHA
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Row(
@@ -143,7 +136,6 @@ class HistorialInspectorDialog extends StatelessWidget {
                           ),
                         ),
 
-                        // REGISTROS DEL DÍA
                         Column(
                           children: registros.map((item) {
                             return _buildHistorialCard(item, context);
@@ -163,21 +155,20 @@ class HistorialInspectorDialog extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // CARD DE CADA REGISTRO DEL HISTORIAL
-  // ============================================================
+  // ================= CARD HISTORIAL =================
   Widget _buildHistorialCard(dynamic r, BuildContext context) {
     final trabajador = r["trabajador"];
     final evidencia = r["evidencia"];
     final camara = r["camara"];
 
-    // Decodificar foto
-    final foto = decode(evidencia?["foto_base64"]);
+    final String? observaciones =
+    evidencia?["observaciones"]?.toString().trim();
+    final bool tieneObservaciones =
+        observaciones != null && observaciones.isNotEmpty;
 
-    // Obtener detalle
+    final foto = decode(evidencia?["foto_base64"]);
     final detalle = evidencia?["detalle"]?.toString().toLowerCase() ?? "";
 
-    // Extraer implementos del detalle
     List<Map<String, dynamic>> implementos = [
       {"name": "Casco", "key": "casco", "icon": Icons.health_and_safety},
       {"name": "Chaleco", "key": "chaleco", "icon": Icons.checkroom},
@@ -190,7 +181,6 @@ class HistorialInspectorDialog extends StatelessWidget {
       item["detected"] = !detalle.contains(item["key"]);
     }
 
-    // Contar incumplidos
     final incumplidos = implementos.where((i) => !i["detected"]).length;
     final hasViolation = incumplidos > 0;
 
@@ -216,44 +206,26 @@ class HistorialInspectorDialog extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // IMAGEN + INFO
+            // -------- IMAGEN + INFO --------
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                GestureDetector(
-                  onTap: () {
-                    if (foto != null) {
-                      showDialog(
-                        context: context,
-                        builder: (_) => Dialog(
-                          child: InteractiveViewer(
-                            child: Image.memory(foto),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: 100,
-                      height: 80,
-                      color: Colors.grey.shade200,
-                      child: foto != null
-                          ? Image.memory(foto, fit: BoxFit.cover)
-                          : const Icon(Icons.image_not_supported),
-                    ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 100,
+                    height: 80,
+                    color: Colors.grey.shade200,
+                    child: foto != null
+                        ? Image.memory(foto, fit: BoxFit.cover)
+                        : const Icon(Icons.image_not_supported),
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
-                // INFO
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // BADGE CUMPLIMIENTO/INCUMPLIMIENTO
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
@@ -262,30 +234,23 @@ class HistorialInspectorDialog extends StatelessWidget {
                               ? Colors.red.shade100
                               : Colors.green.shade100,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: hasViolation
-                                ? Colors.red.shade300
-                                : Colors.green.shade300,
-                            width: 1,
-                          ),
                         ),
                         child: Text(
                           hasViolation
                               ? "Incumplimiento ($incumplidos)"
                               : "Cumplimiento",
                           style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
                             color: hasViolation
                                 ? Colors.red.shade700
                                 : Colors.green.shade700,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 8),
                       Text(
-                        "${trabajador["nombre"] ?? ""} ${trabajador["apellido"] ?? ""}",
+                        "${trabajador["nombre"]} ${trabajador["apellido"]}",
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -293,15 +258,16 @@ class HistorialInspectorDialog extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-
-                      Text("Cámara: ${camara?["codigo"] ?? "N/A"}",
+                      Text("Cámara: ${camara["codigo"]}",
                           style: const TextStyle(fontSize: 12)),
-                      Text("Zona: ${camara?["zona"] ?? "N/A"}",
+                      Text("Zona: ${camara["zona"]}",
                           style: const TextStyle(fontSize: 12)),
                       const SizedBox(height: 4),
-                      Text("${r["fecha_registro"] ?? ""}",
-                          style: const TextStyle(
-                              color: Colors.black54, fontSize: 11)),
+                      Text(
+                        r["fecha_registro"],
+                        style: const TextStyle(
+                            fontSize: 11, color: Colors.black54),
+                      ),
                     ],
                   ),
                 ),
@@ -310,45 +276,74 @@ class HistorialInspectorDialog extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // IMPLEMENTOS EN GRID
+            // -------- OBSERVACIONES --------
+            if (tieneObservaciones)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.comment,
+                            size: 18, color: Colors.blue.shade700),
+                        const SizedBox(width: 6),
+                        Text(
+                          "Observación del inspector",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      observaciones!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // -------- IMPLEMENTOS --------
             GridView.count(
               shrinkWrap: true,
               crossAxisCount: 3,
-              crossAxisSpacing: 6,
-              mainAxisSpacing: 6,
               physics: const NeverScrollableScrollPhysics(),
               childAspectRatio: 1.8,
               children: implementos.map((item) {
                 final detected = item["detected"];
-
                 return Container(
+                  margin: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: detected ? Colors.green.shade50 : Colors.red.shade50,
+                    color:
+                    detected ? Colors.green.shade50 : Colors.red.shade50,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: detected ? Colors.green : Colors.red,
-                      width: 1,
-                    ),
+                        color: detected ? Colors.green : Colors.red),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        item["icon"],
-                        color: detected ? Colors.green : Colors.red,
-                        size: 18,
-                      ),
-                      const SizedBox(height: 3),
+                      Icon(item["icon"],
+                          size: 18,
+                          color: detected ? Colors.green : Colors.red),
+                      const SizedBox(height: 4),
                       Text(
                         item["name"],
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 10,
-                          color: detected
-                              ? Colors.green.shade900
-                              : Colors.red.shade900,
-                        ),
-                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 10),
                       ),
                     ],
                   ),
@@ -361,9 +356,7 @@ class HistorialInspectorDialog extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // CARD DE ESTADÍSTICA
-  // ============================================================
+  // ================= STAT CARD =================
   Widget _statCard(String title, String value, {Color color = Colors.black}) {
     return Expanded(
       child: Container(
@@ -372,14 +365,12 @@ class HistorialInspectorDialog extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade300),
-          color: Colors.white,
         ),
         child: Column(
           children: [
             Text(title,
-                style: const TextStyle(
-                    fontSize: 11, color: Colors.black54),
-                textAlign: TextAlign.center),
+                style:
+                const TextStyle(fontSize: 11, color: Colors.black54)),
             const SizedBox(height: 4),
             Text(
               value,
@@ -388,7 +379,6 @@ class HistorialInspectorDialog extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),

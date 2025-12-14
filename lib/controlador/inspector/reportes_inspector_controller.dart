@@ -20,8 +20,8 @@ class ReportesInspectorController {
     );
   }
 
-  // 🔹 Historial trabajador
-  Future<List<dynamic>> obtenerHistorialTrabajador(String cedula) async {
+  // 🔹 Historial trabajador ✅ CAMBIO AQUÍ
+  Future<Map<String, dynamic>> obtenerHistorialTrabajador(String cedula) async {
     return await _api.obtenerHistorialPorCedula(cedula);
   }
 

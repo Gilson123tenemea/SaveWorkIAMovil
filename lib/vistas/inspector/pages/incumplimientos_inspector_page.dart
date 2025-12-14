@@ -714,26 +714,18 @@ class _IncumplimientosInspectorPageState
 
   Future<void> _mostrarHistorial(String cedula) async {
     try {
-      final data = await reportesController.obtenerHistorialTrabajador(cedula);
+      final Map<String, dynamic> data =
+      await reportesController.obtenerHistorialTrabajador(cedula);
 
       print("=============== RESPUESTA COMPLETA DE API ===============");
       print(jsonEncode(data));
       print("=========================================================");
 
-      late List<dynamic> historial;
-      late Map<String, dynamic>? stats;
+      final List<dynamic> historial =
+      (data["historial"] ?? []) as List<dynamic>;
 
-      if (data is List<dynamic>) {
-        historial = data;
-        stats = null;
-      } else if (data is Map<String, dynamic>) {
-        final dataMap = data as Map<String, dynamic>;
-        historial = (dataMap["historial"] ?? []) as List<dynamic>;
-        stats = dataMap["estadisticas"] as Map<String, dynamic>?;
-      } else {
-        historial = [];
-        stats = null;
-      }
+      final Map<String, dynamic>? stats =
+      data["estadisticas"] as Map<String, dynamic>?;
 
       if (historial.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -745,9 +737,8 @@ class _IncumplimientosInspectorPageState
         return;
       }
 
-      final nombreCompleto = historial.isNotEmpty
-          ? "${historial[0]["trabajador"]["nombre"]} ${historial[0]["trabajador"]["apellido"]}"
-          : "Trabajador";
+      final nombreCompleto =
+          "${historial[0]["trabajador"]["nombre"]} ${historial[0]["trabajador"]["apellido"]}";
 
       showDialog(
         context: context,
@@ -768,6 +759,7 @@ class _IncumplimientosInspectorPageState
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

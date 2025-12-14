@@ -34,8 +34,7 @@ class ReportesInspectorApi {
     }
   }
 
-  Future<List<dynamic>> obtenerHistorialPorCedula(String cedula) async {
-
+  Future<Map<String, dynamic>> obtenerHistorialPorCedula(String cedula) async {
     final url = Uri.parse(
       '$baseUrl/reportes/inspectores/trabajador',
     ).replace(queryParameters: {
@@ -45,13 +44,15 @@ class ReportesInspectorApi {
     final resp = await http.get(url);
 
     if (resp.statusCode == 200) {
-      return jsonDecode(resp.body);
+      return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
       throw Exception(
         'Error obteniendo historial trabajador: ${resp.statusCode} - ${resp.body}',
       );
     }
   }
+
+
 
   Future<List<dynamic>> obtenerZonasInspector(int idInspector) async {
 
