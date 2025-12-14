@@ -445,17 +445,21 @@ class _IncumplimientosInspectorPageState
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
+                    onPressed: tieneObservacion
+                        ? null
+                        : () {
                       evidenciaSeleccionada = evidencia["id_evidencia"];
                       _mostrarDialogoObservacion();
                     },
                     icon: const Icon(Icons.note_add, size: 18),
-                    label: const Text("Observación"),
+                    label: Text(
+                      tieneObservacion ? "Observación" : "Observación",
+                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: tieneObservacion
-                          ? Colors.grey
-                          : Colors.blue.shade600,
+                      backgroundColor: Colors.blue.shade600,
+                      disabledBackgroundColor: Colors.grey.shade400,
                       foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white70,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -463,6 +467,7 @@ class _IncumplimientosInspectorPageState
                     ),
                   ),
                 ),
+
                 const SizedBox(width: 10),
                 if (estado != "REVISADO")
                   Expanded(
