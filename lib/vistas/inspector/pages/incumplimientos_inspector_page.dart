@@ -173,8 +173,8 @@ class _IncumplimientosInspectorPageState
           style: OutlinedButton.styleFrom(
             backgroundColor:
             selected ? const Color(0xff073375) : Colors.transparent,
-            foregroundColor: selected ? Colors.white : Color(0xff073375),
-            side: BorderSide(
+            foregroundColor: selected ? Colors.white : const Color(0xff073375),
+            side: const BorderSide(
               color: Color(0xff073375),
               width: 1.5,
             ),
@@ -186,7 +186,8 @@ class _IncumplimientosInspectorPageState
           onPressed: () {
             setState(() => filtroEstado = value);
           },
-          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          child: Text(label,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
         ),
       ),
     );
@@ -200,21 +201,18 @@ class _IncumplimientosInspectorPageState
         labelStyle: const TextStyle(color: Color(0xff073375)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-          const BorderSide(color: Color(0xff073375), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xff073375), width: 1.5),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-          const BorderSide(color: Color(0xff073375), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xff073375), width: 1.5),
         ),
         suffixIcon: const Icon(Icons.calendar_today,
             color: Color(0xff073375), size: 20),
         contentPadding:
         const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
-      controller:
-      TextEditingController(text: desde ? fechaDesde : fechaHasta),
+      controller: TextEditingController(text: desde ? fechaDesde : fechaHasta),
       onTap: () async {
         final date = await showDatePicker(
           context: context,
@@ -236,26 +234,41 @@ class _IncumplimientosInspectorPageState
     );
   }
 
+  // ✅ helper: normaliza estado venga como bool/int/null/String
+  bool _esRevisado(dynamic estadoRaw) {
+    if (estadoRaw == null) return false;
+    if (estadoRaw is bool) return estadoRaw;          // true/false
+    if (estadoRaw is int) return estadoRaw == 1;      // 1/0
+    if (estadoRaw is String) {
+      final v = estadoRaw.toLowerCase().trim();
+      return v == "revisado" || v == "true" || v == "1";
+    }
+    return false;
+  }
+
   Widget _buildReporteCard(dynamic rep) {
     final trabajador = rep["trabajador"];
     final evidencia = rep["evidencia"];
     final camara = rep["camara"];
-    final estado = evidencia["estado"];
+
+    // ✅ estado normalizado
+    final dynamic estadoRaw = evidencia["estado"];
+    final bool estaRevisado = _esRevisado(estadoRaw);
 
     Uint8List? fotoBytes = evidencia["foto_base64"] != null
         ? base64Decode(evidencia["foto_base64"])
         : null;
 
-    if (filtroEstado == "pendientes" && estado == "REVISADO") {
+    // ✅ filtros SIN cambiar tu UI
+    if (filtroEstado == "pendientes" && estaRevisado) {
       return const SizedBox.shrink();
     }
-    if (filtroEstado == "revisados" && estado != "REVISADO") {
+    if (filtroEstado == "revisados" && !estaRevisado) {
       return const SizedBox.shrink();
     }
 
-    final borderColor = estado == "REVISADO"
-        ? Colors.green.shade300
-        : Colors.red.shade300;
+    final borderColor =
+    estaRevisado ? Colors.green.shade300 : Colors.red.shade300;
 
     final tieneObservacion = evidencia["observaciones"] != null &&
         evidencia["observaciones"].toString().isNotEmpty;
@@ -379,15 +392,15 @@ class _IncumplimientosInspectorPageState
                   padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: estado == "REVISADO"
+                    color: estaRevisado
                         ? Colors.green.shade100
                         : Colors.orange.shade100,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    estado == "REVISADO" ? "Revisado" : "Pendiente",
+                    estaRevisado ? "Revisado" : "Pendiente",
                     style: TextStyle(
-                      color: estado == "REVISADO"
+                      color: estaRevisado
                           ? Colors.green.shade700
                           : Colors.orange.shade700,
                       fontWeight: FontWeight.w600,
@@ -398,9 +411,11 @@ class _IncumplimientosInspectorPageState
               ],
             ),
             const SizedBox(height: 18),
+
             // GRID DE IMPLEMENTOS
             _buildImplementosGrid(evidencia["detalle"] ?? ""),
             const SizedBox(height: 16),
+
             // MOSTRAR OBSERVACIONES SI EXISTEN
             if (tieneObservacion)
               Container(
@@ -440,9 +455,11 @@ class _IncumplimientosInspectorPageState
                   ],
                 ),
               ),
+
             // BOTONES
             Row(
               children: [
+                // ✅ Observación BLOQUEADA si ya existe
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: tieneObservacion
@@ -452,9 +469,7 @@ class _IncumplimientosInspectorPageState
                       _mostrarDialogoObservacion();
                     },
                     icon: const Icon(Icons.note_add, size: 18),
-                    label: Text(
-                      tieneObservacion ? "Observación" : "Observación",
-                    ),
+                    label: const Text("Observación"),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade600,
                       disabledBackgroundColor: Colors.grey.shade400,
@@ -469,14 +484,16 @@ class _IncumplimientosInspectorPageState
                 ),
 
                 const SizedBox(width: 10),
-                if (estado != "REVISADO")
+
+                // ✅ Botón revisado SOLO si NO está revisado
+                if (!estaRevisado)
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         try {
                           await evidenciasController.actualizarEvidencia(
                             idEvidencia: evidencia["id_evidencia"],
-                            estado: "REVISADO",
+                            estado: true, // ✅ envía bool (backend lo espera)
                           );
 
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -510,11 +527,12 @@ class _IncumplimientosInspectorPageState
                       ),
                     ),
                   ),
-                if (estado != "REVISADO") const SizedBox(width: 10),
+
+                if (!estaRevisado) const SizedBox(width: 10),
+
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () =>
-                        _mostrarHistorial(trabajador["cedula"]),
+                    onPressed: () => _mostrarHistorial(trabajador["cedula"]),
                     icon: const Icon(Icons.history, size: 18),
                     label: const Text("Historial"),
                     style: OutlinedButton.styleFrom(
@@ -542,31 +560,11 @@ class _IncumplimientosInspectorPageState
     final detalleMin = detalle.toLowerCase();
 
     final items = [
-      {
-        "name": "Casco",
-        "key": "casco",
-        "icon": Icons.health_and_safety,
-      },
-      {
-        "name": "Chaleco",
-        "key": "chaleco",
-        "icon": Icons.checkroom,
-      },
-      {
-        "name": "Botas",
-        "key": "botas",
-        "icon": Icons.safety_check,
-      },
-      {
-        "name": "Guantes",
-        "key": "guantes",
-        "icon": Icons.pan_tool,
-      },
-      {
-        "name": "Lentes",
-        "key": "lentes",
-        "icon": Icons.remove_red_eye,
-      },
+      {"name": "Casco", "key": "casco", "icon": Icons.health_and_safety},
+      {"name": "Chaleco", "key": "chaleco", "icon": Icons.checkroom},
+      {"name": "Botas", "key": "botas", "icon": Icons.safety_check},
+      {"name": "Guantes", "key": "guantes", "icon": Icons.pan_tool},
+      {"name": "Lentes", "key": "lentes", "icon": Icons.remove_red_eye},
     ];
 
     for (var item in items) {
@@ -607,8 +605,7 @@ class _IncumplimientosInspectorPageState
                 name,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color:
-                  detected ? Colors.green.shade900 : Colors.red.shade900,
+                  color: detected ? Colors.green.shade900 : Colors.red.shade900,
                   fontSize: 12,
                 ),
                 textAlign: TextAlign.center,
@@ -652,8 +649,7 @@ class _IncumplimientosInspectorPageState
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-              const BorderSide(color: Color(0xff073375), width: 2),
+              borderSide: const BorderSide(color: Color(0xff073375), width: 2),
             ),
           ),
         ),
@@ -724,7 +720,6 @@ class _IncumplimientosInspectorPageState
       print(jsonEncode(data));
       print("=========================================================");
 
-      // Validar y separar historial y estadísticas
       late List<dynamic> historial;
       late Map<String, dynamic>? stats;
 

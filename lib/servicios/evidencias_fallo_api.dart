@@ -3,18 +3,14 @@ import 'package:http/http.dart' as http;
 import '../config/api.dart';
 
 class EvidenciasFalloApi {
-
   final String baseUrl = ApiConfig.baseUrl;
 
   Future<Map<String, dynamic>> actualizarEvidenciaFallo({
     required int idEvidencia,
-    String? estado,
+    dynamic estado, // ✅ antes String? -> ahora dynamic para enviar bool/int
     String? observaciones,
   }) async {
-
-    final url = Uri.parse(
-      '$baseUrl/evidencias-fallo/actualizar/$idEvidencia',
-    );
+    final url = Uri.parse('$baseUrl/evidencias-fallo/actualizar/$idEvidencia');
 
     final body = <String, dynamic>{
       if (estado != null) 'estado': estado,
@@ -23,9 +19,7 @@ class EvidenciasFalloApi {
 
     final resp = await http.put(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: {'Content-Type': 'application/json'},
       body: jsonEncode(body),
     );
 
