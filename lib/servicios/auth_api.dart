@@ -34,10 +34,8 @@ class AuthApi {
     return jsonDecode(response.body);
   }
 
-  static Future<Map<String, dynamic>> loginTrabajador(
-      String correo, String contrasena) async {
-
-    final url = Uri.parse(api("/trabajadores/login"));
+  static Future<Map<String, dynamic>> loginTrabajador(String correo, String contrasena) async {
+    final url = Uri.parse(api("/trabajadores/login")); // Usamos la función api para generar la URL
 
     final response = await http.post(
       url,
