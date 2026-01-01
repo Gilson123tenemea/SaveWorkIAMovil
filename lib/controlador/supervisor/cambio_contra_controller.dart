@@ -3,8 +3,17 @@ import '../../servicios/cambio_contra_api.dart';
 class CambioContraController {
   final CambioContraApi _api = CambioContraApi();
 
-  Future<Map<String, dynamic>> solicitar(
-      String correo, int idPersona) async {
+  // Validar formato de contraseña
+  bool _validarFormatoContrasena(String password) {
+    final hasLowercase = password.contains(RegExp(r'[a-z]'));
+    final hasUppercase = password.contains(RegExp(r'[A-Z]'));
+    final hasNumber = password.contains(RegExp(r'\d'));
+    final hasSpecial = password.contains(RegExp(r'[@$!%*#?&]'));
+
+    return hasLowercase && hasUppercase && hasNumber && hasSpecial;
+  }
+
+  Future<Map<String, dynamic>> solicitar(String correo, int idPersona) async {
     try {
       final response = await _api.solicitarCambioContrasena(correo, idPersona);
 
@@ -29,44 +38,43 @@ class CambioContraController {
     }
   }
 
-  Future<Map<String, dynamic>> confirmar(
-      String token, String nuevaContrasena, int idPersona) async {
-    try {
-      if (nuevaContrasena.isEmpty) {
-        return {
-          'success': false,
-          'mensaje': 'La contrasena no puede estar vacia',
-        };
-      }
-
-      if (nuevaContrasena.length < 6) {
-        return {
-          'success': false,
-          'mensaje': 'La contrasena debe tener al menos 6 caracteres',
-        };
-      }
-
-      final response = await _api.confirmarCambioContrasena(
-          token, nuevaContrasena, idPersona);
-
-      if (response.containsKey('error')) {
-        return {
-          'success': false,
-          'mensaje': response['error'] ?? 'Error al cambiar la contrasena',
-        };
-      }
-
-      return {
-        'success': true,
-        'mensaje': response['mensaje'] ?? 'Contrasena actualizada correctamente',
-        'correo': response['correo'],
-        'nombre': response['nombre'],
-      };
-    } catch (e) {
-      return {
-        'success': false,
-        'mensaje': 'Error de conexion: $e',
-      };
+  Future<void> confirmar(String token,
+      String nuevaContrasena,
+      int idPersona,) async {
+    // 🔹 Validaciones locales (se quedan)
+    if (token
+        .trim()
+        .isEmpty) {
+      throw Exception('El token es obligatorio');
     }
+
+    if (nuevaContrasena.isEmpty) {
+      throw Exception('La contraseña no puede estar vacía');
+    }
+
+    if (nuevaContrasena.length < 8) {
+      throw Exception('La contraseña debe tener al menos 8 caracteres');
+    }
+
+    if (!_validarFormatoContrasena(nuevaContrasena)) {
+      throw Exception(
+          'La contraseña debe tener mayúsculas, minúsculas, números y caracteres especiales (@\$!%*#?&)'
+      );
+    }
+
+    // 🔹 Llamada al API
+    final response = await _api.confirmarCambioContrasena(
+      token,
+      nuevaContrasena,
+      idPersona,
+    );
+
+    // 🔴 ERROR DEL BACKEND → SE LANZA
+    if (response.containsKey('error')) {
+      throw Exception(response['error']);
+    }
+
+    // ✅ Si llega aquí, TODO salió bien
+
   }
 }

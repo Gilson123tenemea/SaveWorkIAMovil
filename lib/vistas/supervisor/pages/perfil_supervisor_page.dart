@@ -79,6 +79,23 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     telefonoController.text = data['telefono'] ?? '';
   }
 
+  // Validaciones de contraseña
+  Map<String, bool> _getPasswordValidations() {
+    final password = nuevaContraseaController.text;
+    return {
+      'minLength': password.length >= 8,
+      'hasLowercase': password.contains(RegExp(r'[a-z]')),
+      'hasUppercase': password.contains(RegExp(r'[A-Z]')),
+      'hasNumber': password.contains(RegExp(r'\d')),
+      'hasSpecial': password.contains(RegExp(r'[@$!%*#?&]')),
+    };
+  }
+
+  bool _isPasswordValid() {
+    final validations = _getPasswordValidations();
+    return validations.values.every((v) => v);
+  }
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -206,8 +223,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       perfilData!['id_persona'],
     );
 
-    setState(() => isLoadingToken = false);
-
     if (!mounted) return;
 
     if (result['success']) {
@@ -219,10 +234,16 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       );
 
       await Future.delayed(const Duration(seconds: 2));
+
       if (mounted) {
-        setState(() => passwordStep = "verify");
+        setState(() {
+          isLoadingToken = false;
+          passwordStep = "verify";
+        });
       }
     } else {
+      setState(() => isLoadingToken = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['mensaje'] ?? 'Error al enviar token'),
@@ -239,31 +260,36 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       confirmarContraseaError = null;
     });
 
+    // 🔹 Validaciones locales (NO se tocan)
     if (tokenController.text.trim().isEmpty) {
       setState(() => tokenError = "El token es obligatorio");
       return;
     }
 
     if (nuevaContraseaController.text.trim().isEmpty) {
-      setState(() => nuevaContraseaError = "La contrasena es obligatoria");
+      setState(() => nuevaContraseaError = "La contraseña es obligatoria");
       return;
     }
 
     if (confirmarContraseaController.text.trim().isEmpty) {
-      setState(
-              () => confirmarContraseaError = "Debes confirmar la contrasena");
+      setState(() => confirmarContraseaError = "Debes confirmar la contraseña");
       return;
     }
 
     if (nuevaContraseaController.text.length < 8) {
-      setState(
-              () => nuevaContraseaError = "La contrasena debe tener minimo 8 caracteres");
+      setState(() => nuevaContraseaError =
+      "La contraseña debe tener mínimo 8 caracteres");
+      return;
+    }
+
+    if (!_isPasswordValid()) {
+      setState(() => nuevaContraseaError =
+      "La contraseña debe tener mayúsculas, minúsculas, números y caracteres especiales (@\$!%*#?&)");
       return;
     }
 
     if (nuevaContraseaController.text != confirmarContraseaController.text) {
-      setState(
-              () => confirmarContraseaError = "Las contrasenas no coinciden");
+      setState(() => confirmarContraseaError = "Las contraseñas no coinciden");
       return;
     }
 
@@ -276,32 +302,65 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
 
     setState(() => isChangingPassword = true);
 
-    final result = await cambioContraController.confirmar(
-      tokenController.text,
-      nuevaContraseaController.text,
-      perfilData!['id_persona'],
-    );
+    try {
+      // ✅ SI EL BACKEND FALLA → AQUÍ LANZA EXCEPTION
+      await cambioContraController.confirmar(
+        tokenController.text,
+        nuevaContraseaController.text,
+        perfilData!['id_persona'],
+      );
 
-    setState(() => isChangingPassword = false);
+      if (!mounted) return;
 
-    if (!mounted) return;
+      // ✅ SOLO SI TODO FUE CORRECTO
+      Navigator.of(context).pop();
 
-    if (result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Contrasena actualizada correctamente'),
+          content: Text('Contraseña actualizada correctamente'),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
         ),
       );
 
       _closePasswordModal();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['mensaje'] ?? 'Error al cambiar contrasena'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    } catch (e) {
+      final errorMessage =
+      e.toString().replaceAll('Exception: ', '').toLowerCase();
+
+      // 🔴 ERRORES DE TOKEN
+      if (errorMessage.contains('token')) {
+        setState(() {
+          if (errorMessage.contains('expirado')) {
+            tokenError = "El token ha expirado. Solicita uno nuevo";
+          } else if (errorMessage.contains('utilizado')) {
+            tokenError = "Este token ya fue utilizado";
+          } else {
+            tokenError = "Token incorrecto o inválido";
+          }
+        });
+      }
+
+      // 🔴 ERRORES DE CONTRASEÑA
+      else if (errorMessage.contains('contraseña') ||
+          errorMessage.contains('mayúscula') ||
+          errorMessage.contains('minúscula') ||
+          errorMessage.contains('número') ||
+          errorMessage.contains('caracter')) {
+        setState(() => nuevaContraseaError = errorMessage);
+      }
+
+      // 🔴 OTROS ERRORES
+      else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => isChangingPassword = false);
     }
   }
 
@@ -310,6 +369,9 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       showPasswordModal = false;
       passwordStep = "request";
       isLoadingToken = false;
+      isChangingPassword = false;
+      showNewPassword = false;
+      showConfirmPassword = false;
       tokenController.clear();
       nuevaContraseaController.clear();
       confirmarContraseaController.clear();
@@ -409,8 +471,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                   CircleAvatar(
                     radius: 45,
                     backgroundColor: Colors.grey.shade200,
-                    backgroundImage:
-                    perfilData!["foto"] != null
+                    backgroundImage: perfilData!["foto"] != null
                         ? MemoryImage(base64Decode(perfilData!["foto"]))
                         : null,
                     child: perfilData!["foto"] == null
@@ -457,8 +518,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
               if (!editMode)
                 Text(
                   perfilData!["correo"],
-                  style:
-                  const TextStyle(fontSize: 14, color: Colors.black54),
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
                 ),
 
               const SizedBox(height: 20),
@@ -488,8 +548,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                       _buildInfoCard(
                         title: "Informacion Laboral",
                         items: {
-                          "Especialidad":
-                          perfilData!["especialidad_seguridad"],
+                          "Especialidad": perfilData!["especialidad_seguridad"],
                           "Experiencia": "${perfilData!["experiencia"]} anos",
                         },
                       ),
@@ -514,8 +573,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                             SizedBox(
                               width: 100,
                               child: ElevatedButton(
-                                onPressed: () =>
-                                    Navigator.pop(context),
+                                onPressed: () => Navigator.pop(context),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.grey.shade300,
                                 ),
@@ -530,8 +588,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                                 onPressed: () =>
                                     setState(() => editMode = true),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                  const Color(0xff073375),
+                                  backgroundColor: const Color(0xff073375),
                                 ),
                                 child: const Text("Editar",
                                     style: TextStyle(color: Colors.white)),
@@ -555,8 +612,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                               child: ElevatedButton(
                                 onPressed: _handleSave,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                  const Color(0xff073375),
+                                  backgroundColor: const Color(0xff073375),
                                 ),
                                 child: const Text("Guardar",
                                     style: TextStyle(color: Colors.white)),
@@ -610,8 +666,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
           ),
           const Divider(),
           ...items.entries.map((e) {
-            bool isTextEditingController =
-            e.value is TextEditingController;
+            bool isTextEditingController = e.value is TextEditingController;
 
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -636,8 +691,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        contentPadding:
-                        const EdgeInsets.symmetric(
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
@@ -645,8 +699,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                     )
                         : Text(
                       isTextEditingController
-                          ? (e.value as TextEditingController)
-                          .text
+                          ? (e.value as TextEditingController).text
                           : e.value?.toString() ?? "-",
                       style: const TextStyle(
                         color: Colors.black54,
@@ -662,8 +715,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     );
   }
 
-  Widget _buildPasswordCard(
-      {required VoidCallback onChangePasswordPressed}) {
+  Widget _buildPasswordCard({required VoidCallback onChangePasswordPressed}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -695,7 +747,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
             children: [
               const Expanded(
                 child: Text(
-                  "Contrasena",
+                  "Contraseña",
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
@@ -712,8 +764,8 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                     ),
                     TextButton(
                       onPressed: onChangePasswordPressed,
-                      child: const Text("Cambiar",
-                          style: TextStyle(fontSize: 12)),
+                      child:
+                      const Text("Cambiar", style: TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -726,50 +778,140 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
   }
 
   void _showPasswordModal() {
+    setState(() {
+      showPasswordModal = true;
+    });
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setModalState) {
             return AlertDialog(
-              title: const Text("Cambiar Contrasena"),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              title: const Text(
+                "Cambiar Contraseña",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               content: SizedBox(
                 width: double.maxFinite,
                 child: isLoadingToken
-                    ? const Center(
-                  child: CircularProgressIndicator(),
+                    ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      height: 60,
+                      width: 60,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      "Enviando token a tu correo...",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    // Progress Bar
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: LinearProgressIndicator(
+                          minHeight: 8,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xff073375),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Esto puede tardar unos segundos...",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 )
                     : passwordStep == "request"
                     ? Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                        "Se enviara un token a tu correo electronico"),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        correoController.text,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      "Se enviará un token de validación a tu correo electrónico para verificar tu identidad.",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                        height: 1.5,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _handleRequestToken,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                        const Color(0xff073375),
-                        minimumSize: const Size(double.infinity, 48),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text("Enviar Token",
-                          style: TextStyle(color: Colors.white)),
+                      child: Row(
+                        children: [
+                          const Text(
+                            "Correo: ",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              correoController.text,
+                              style: const TextStyle(
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await _handleRequestToken();
+                          setModalState(() {});
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff073375),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          "Enviar Token",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 )
@@ -777,123 +919,281 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextField(
-                        controller: tokenController,
-                        decoration: InputDecoration(
-                          labelText: "Token de Validacion",
-                          hintText:
-                          "Ingresa el token recibido",
-                          border: OutlineInputBorder(
-                            borderRadius:
-                            BorderRadius.circular(8),
+                      // TOKEN
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Token de Validación",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          errorText: tokenError,
-                        ),
-                        onChanged: (_) => setState(() {
-                          if (tokenError != null) {
-                            tokenError = null;
-                          }
-                        }),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: tokenController,
+                            decoration: InputDecoration(
+                              hintText: "Ingresa el token recibido",
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                BorderRadius.circular(10),
+                              ),
+                              errorText: tokenError,
+                              errorBorder: OutlineInputBorder(
+                                borderRadius:
+                                BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                    color: Colors.red, width: 1.5),
+                              ),
+                              contentPadding:
+                              const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                            onChanged: (_) {
+                              if (tokenError != null) {
+                                setModalState(() {
+                                  setState(() => tokenError = null);
+                                });
+                              }
+                            },
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: nuevaContraseaController,
-                        obscureText: !showNewPassword,
-                        decoration: InputDecoration(
-                          labelText: "Nueva Contrasena",
-                          border: OutlineInputBorder(
-                            borderRadius:
-                            BorderRadius.circular(8),
+                      const SizedBox(height: 16),
+
+                      // NUEVA CONTRASEÑA
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Nueva Contraseña",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          errorText: nuevaContraseaError,
-                          suffixIcon: IconButton(
-                            icon: Icon(showNewPassword
-                                ? Icons.visibility
-                                : Icons.visibility_off),
-                            onPressed: () => setState(() =>
-                            showNewPassword =
-                            !showNewPassword),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: nuevaContraseaController,
+                            obscureText: !showNewPassword,
+                            decoration: InputDecoration(
+                              hintText: "Mínimo 8 caracteres",
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                BorderRadius.circular(10),
+                              ),
+                              errorText: nuevaContraseaError,
+                              errorBorder: OutlineInputBorder(
+                                borderRadius:
+                                BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                    color: Colors.red, width: 1.5),
+                              ),
+                              contentPadding:
+                              const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(showNewPassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off),
+                                onPressed: () {
+                                  setModalState(() {
+                                    setState(() =>
+                                    showNewPassword =
+                                    !showNewPassword);
+                                  });
+                                },
+                              ),
+                            ),
+                            onChanged: (_) {
+                              if (nuevaContraseaError != null) {
+                                setModalState(() {
+                                  setState(
+                                          () => nuevaContraseaError = null);
+                                });
+                              }
+                              setModalState(() {});
+                            },
                           ),
-                        ),
-                        onChanged: (_) => setState(() {
-                          if (nuevaContraseaError != null) {
-                            nuevaContraseaError = null;
-                          }
-                        }),
+                          // Indicadores de requisitos
+                          if (nuevaContraseaController.text.isNotEmpty &&
+                              nuevaContraseaError == null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Column(
+                                children: [
+                                  _buildPasswordRequirement(
+                                    "Mínimo 8 caracteres",
+                                    _getPasswordValidations()['minLength']!,
+                                  ),
+                                  _buildPasswordRequirement(
+                                    "Al menos una minúscula",
+                                    _getPasswordValidations()['hasLowercase']!,
+                                  ),
+                                  _buildPasswordRequirement(
+                                    "Al menos una mayúscula",
+                                    _getPasswordValidations()['hasUppercase']!,
+                                  ),
+                                  _buildPasswordRequirement(
+                                    "Al menos un número",
+                                    _getPasswordValidations()['hasNumber']!,
+                                  ),
+                                  _buildPasswordRequirement(
+                                    "Al menos un caracter especial (@\$!%*#?&)",
+                                    _getPasswordValidations()['hasSpecial']!,
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: confirmarContraseaController,
-                        obscureText: !showConfirmPassword,
-                        decoration: InputDecoration(
-                          labelText: "Confirmar Contrasena",
-                          border: OutlineInputBorder(
-                            borderRadius:
-                            BorderRadius.circular(8),
+                      const SizedBox(height: 16),
+
+                      // CONFIRMAR CONTRASEÑA
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Confirmar Contraseña",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          errorText: confirmarContraseaError,
-                          suffixIcon: IconButton(
-                            icon: Icon(showConfirmPassword
-                                ? Icons.visibility
-                                : Icons.visibility_off),
-                            onPressed: () => setState(() =>
-                            showConfirmPassword =
-                            !showConfirmPassword),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: confirmarContraseaController,
+                            obscureText: !showConfirmPassword,
+                            decoration: InputDecoration(
+                              hintText: "Repite la contraseña",
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                BorderRadius.circular(10),
+                              ),
+                              errorText: confirmarContraseaError,
+                              errorBorder: OutlineInputBorder(
+                                borderRadius:
+                                BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                    color: Colors.red, width: 1.5),
+                              ),
+                              contentPadding:
+                              const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(showConfirmPassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off),
+                                onPressed: () {
+                                  setModalState(() {
+                                    setState(() =>
+                                    showConfirmPassword =
+                                    !showConfirmPassword);
+                                  });
+                                },
+                              ),
+                            ),
+                            onChanged: (_) {
+                              if (confirmarContraseaError != null) {
+                                setModalState(() {
+                                  setState(() =>
+                                  confirmarContraseaError = null);
+                                });
+                              }
+                            },
                           ),
-                        ),
-                        onChanged: (_) => setState(() {
-                          if (confirmarContraseaError != null) {
-                            confirmarContraseaError = null;
-                          }
-                        }),
+                        ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
+
+                      // BOTONES
                       Row(
                         children: [
                           Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => setState(() {
-                                passwordStep = "request";
-                                tokenController.clear();
-                                nuevaContraseaController
-                                    .clear();
-                                confirmarContraseaController
-                                    .clear();
-                              }),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                Colors.grey.shade300,
-                              ),
-                              child: const Text("Atras",
-                                  style: TextStyle(
-                                      color: Colors.black)),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _handleChangePassword,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                const Color(0xff073375),
-                              ),
-                              child: isChangingPassword
-                                  ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child:
-                                CircularProgressIndicator(
-                                  valueColor:
-                                  AlwaysStoppedAnimation<
-                                      Color>(
-                                    Colors.white,
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  setModalState(() {
+                                    setState(() {
+                                      passwordStep = "request";
+                                      tokenController.clear();
+                                      nuevaContraseaController.clear();
+                                      confirmarContraseaController
+                                          .clear();
+                                      tokenError = null;
+                                      nuevaContraseaError = null;
+                                      confirmarContraseaError = null;
+                                    });
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                  Colors.grey.shade300,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                    BorderRadius.circular(10),
                                   ),
                                 ),
-                              )
-                                  : const Text(
-                                "Cambiar Contrasena",
-                                style: TextStyle(
-                                    color: Colors.white),
+                                child: const Text(
+                                  "Atrás",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: isChangingPassword
+                                    ? null
+                                    : () async {
+                                  await _handleChangePassword();
+                                  setModalState(() {});
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                  const Color(0xff073375),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                    BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: isChangingPassword
+                                    ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child:
+                                  CircularProgressIndicator(
+                                    valueColor:
+                                    AlwaysStoppedAnimation<
+                                        Color>(
+                                      Colors.white,
+                                    ),
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                                    : const Text(
+                                  "Cambiar Contraseña",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -905,8 +1205,17 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: _closePasswordModal,
-                  child: const Text("Cerrar"),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _closePasswordModal();
+                  },
+                  child: const Text(
+                    "Cerrar",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             );
@@ -914,5 +1223,30 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
         );
       },
     ).then((_) => _closePasswordModal());
+  }
+
+  Widget _buildPasswordRequirement(String text, bool isValid) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(
+            isValid ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 16,
+            color: isValid ? Colors.green : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: isValid ? Colors.green : Colors.grey.shade600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
