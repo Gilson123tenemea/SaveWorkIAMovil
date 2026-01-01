@@ -14,6 +14,29 @@ class HistorialTrabajadorDialog extends StatelessWidget {
     required this.historial,
   });
 
+  // ✅ Mapeo de implementos con iconos y nombres en español
+  final Map<String, IconData> implementosIconos = const {
+    "gafas": Icons.remove_red_eye,
+    "botas": Icons.safety_check,
+    "chaleco": Icons.checkroom,
+    "casco": Icons.health_and_safety,
+    "guantes": Icons.pan_tool,
+    "arnés": Icons.shield,
+    "protección auditiva": Icons.volume_off,
+    "mascarilla": Icons.masks,
+  };
+
+  final Map<String, String> implementosNombres = const {
+    "gafas": "Gafas",
+    "botas": "Botas",
+    "chaleco": "Chaleco",
+    "casco": "Casco",
+    "guantes": "Guantes",
+    "arnés": "Arnés",
+    "protección auditiva": "Protección Auditiva",
+    "mascarilla": "Mascarilla",
+  };
+
   Uint8List? decode(String? base64) {
     if (base64 == null) return null;
     try {
@@ -21,6 +44,44 @@ class HistorialTrabajadorDialog extends StatelessWidget {
     } catch (_) {
       return null;
     }
+  }
+
+  // ✅ Determinar si un implemento fue detectado
+  bool fueDetectado(String implemento, List<dynamic> detecciones, String detalleEvidencia) {
+    final detalleMin = detalleEvidencia.toLowerCase();
+
+    // Si aparece en detecciones O en el detalle de evidencia = NO detectado
+    for (var deteccion in detecciones) {
+      if (deteccion.toString().toLowerCase().contains(implemento)) {
+        return false;
+      }
+    }
+
+    if (detalleMin.contains(implemento)) {
+      return false;
+    }
+
+    // Si no aparece en ningún lado = detectado ✅
+    return true;
+  }
+
+  // ✅ Construir lista dinámica de implementos por zona
+  List<Map<String, dynamic>> construirImplementosPorZona(
+      List<dynamic> eppsZona,
+      List<dynamic> detecciones,
+      String detalleEvidencia,
+      ) {
+    return eppsZona.map((epp) {
+      final eppStr = epp.toString().toLowerCase().trim();
+      final detectado = fueDetectado(eppStr, detecciones, detalleEvidencia);
+
+      return {
+        "key": eppStr,
+        "nombre": implementosNombres[eppStr] ?? eppStr.toUpperCase(),
+        "icon": implementosIconos[eppStr] ?? Icons.check_circle,
+        "detectado": detectado,
+      };
+    }).toList();
   }
 
   @override
@@ -193,26 +254,24 @@ class HistorialTrabajadorDialog extends StatelessWidget {
     final evidencia = r["evidencia"];
     final camara = r["camara"];
     final inspector = r["inspector"];
+    final eppsZona = r["epps_zona"] as List<dynamic>? ?? [];
+    final detecciones = r["detecciones"] as List<dynamic>? ?? [];
 
     // Decodificar foto
     final foto = decode(evidencia?["foto_base64"]);
 
     // Determinar si hay incumplimiento
     final detalle = evidencia?["detalle"]?.toString().toLowerCase() ?? "";
-    final hasViolation = detalle.contains("incumplimiento") || detalle.contains("falta");
+    final hasViolation = detalle.contains("incumplimiento") ||
+        detalle.contains("falta") ||
+        detecciones.isNotEmpty;
 
-    // Extraer implementos del detalle
-    List<Map<String, dynamic>> implementos = [
-      {"name": "Casco", "key": "casco", "icon": Icons.health_and_safety},
-      {"name": "Chaleco", "key": "chaleco", "icon": Icons.checkroom},
-      {"name": "Botas", "key": "botas", "icon": Icons.safety_check},
-      {"name": "Guantes", "key": "guantes", "icon": Icons.pan_tool},
-      {"name": "Lentes", "key": "lentes", "icon": Icons.remove_red_eye},
-    ];
-
-    for (var item in implementos) {
-      item["detected"] = !detalle.contains(item["key"]);
-    }
+    // ✅ Construir lista dinámica de implementos
+    final implementos = construirImplementosPorZona(
+      eppsZona,
+      detecciones,
+      detalle,
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -302,69 +361,79 @@ class HistorialTrabajadorDialog extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // IMPLEMENTOS
-            Column(
+            // ✅ IMPLEMENTOS DINÁMICOS
+            implementos.isEmpty
+                ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                "Sin EPPs requeridos para esta zona",
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
+            )
+                : GridView.count(
+              shrinkWrap: true,
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 2.8,
               children: implementos.map((item) {
-                final detected = item["detected"];
+                final detectado = item["detectado"];
 
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 6),
                   decoration: BoxDecoration(
-                    color: detected ? Colors.green.shade50 : Colors.red.shade50,
+                    color: detectado
+                        ? Colors.green.shade50
+                        : Colors.red.shade50,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: detected ? Colors.green : Colors.red,
-                      width: 0.8,
+                      color: detectado ? Colors.green : Colors.red,
+                      width: 1.0,
                     ),
                   ),
                   padding: const EdgeInsets.all(8),
                   child: Row(
                     children: [
-                      Icon(item["icon"],
-                          color: detected ? Colors.green : Colors.red,
-                          size: 18),
+                      Icon(
+                        item["icon"],
+                        color: detectado ? Colors.green : Colors.red,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(item["name"],
-                            style: TextStyle(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              item["nombre"],
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: detected
+                                fontSize: 11,
+                                color: detectado
                                     ? Colors.green.shade900
-                                    : Colors.red)),
-                      ),
-                      Text(detected ? "✓" : "✗",
-                          style: TextStyle(
-                              color: detected
-                                  ? Colors.green.shade700
-                                  : Colors.red,
-                              fontWeight: FontWeight.bold)),
+                                    : Colors.red,
+                              ),
+                            ),
+                            Text(
+                              detectado ? "Detectado" : "No detectado",
+                              style: TextStyle(
+                                color: detectado
+                                    ? Colors.green.shade700
+                                    : Colors.red,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
                     ],
                   ),
                 );
               }).toList(),
             ),
 
-            const SizedBox(height: 8),
 
-            // DESCRIPCIÓN DEL DETALLE
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                evidencia?["detalle"] ?? "Sin detalle",
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.black54,
-                  fontStyle: FontStyle.italic,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
           ],
         ),
       ),

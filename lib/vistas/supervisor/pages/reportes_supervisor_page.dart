@@ -26,6 +26,29 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
   String? fechaDesde;
   String? fechaHasta;
 
+  // Mapeo de implementos con iconos y nombres en español
+  final Map<String, IconData> implementosIconos = {
+    "gafas": Icons.remove_red_eye,
+    "botas": Icons.safety_check,
+    "chaleco": Icons.checkroom,
+    "casco": Icons.health_and_safety,
+    "guantes": Icons.pan_tool,
+    "arnés": Icons.shield,
+    "protección auditiva": Icons.volume_off,
+    "mascarilla": Icons.masks,
+  };
+
+  final Map<String, String> implementosNombres = {
+    "gafas": "Gafas",
+    "botas": "Botas",
+    "chaleco": "Chaleco",
+    "casco": "Casco",
+    "guantes": "Guantes",
+    "arnés": "Arnés",
+    "protección auditiva": "Protección Auditiva",
+    "mascarilla": "Mascarilla",
+  };
+
   @override
   void initState() {
     super.initState();
@@ -88,6 +111,44 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
     );
   }
 
+  // ✅ NUEVA FUNCIÓN: Determinar si un implemento fue detectado
+  bool fueDetectado(String implemento, List<dynamic> detecciones, String detalleEvidencia) {
+    final detalleMin = detalleEvidencia.toLowerCase();
+
+    // Si aparece en detecciones O en el detalle de evidencia = NO detectado
+    for (var deteccion in detecciones) {
+      if (deteccion.toString().toLowerCase().contains(implemento)) {
+        return false;
+      }
+    }
+
+    if (detalleMin.contains(implemento)) {
+      return false;
+    }
+
+    // Si no aparece en ningún lado = detectado ✅
+    return true;
+  }
+
+  // ✅ NUEVA FUNCIÓN: Construir lista dinámica de implementos por zona
+  List<Map<String, dynamic>> construirImplementosPorZona(
+      List<dynamic> eppsZona,
+      List<dynamic> detecciones,
+      String detalleEvidencia,
+      ) {
+    return eppsZona.map((epp) {
+      final eppStr = epp.toString().toLowerCase().trim();
+      final detectado = fueDetectado(eppStr, detecciones, detalleEvidencia);
+
+      return {
+        "key": eppStr,
+        "nombre": implementosNombres[eppStr] ?? eppStr.toUpperCase(),
+        "icon": implementosIconos[eppStr] ?? Icons.check_circle,
+        "detectado": detectado,
+      };
+    }).toList();
+  }
+
   Widget _buildHeader() {
     return Stack(
       children: [
@@ -132,6 +193,8 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
     final evidencia = rep["evidencia"];
     final camara = rep["camara"];
     final inspector = rep["inspector"];
+    final eppsZona = rep["epps_zona"] as List<dynamic>? ?? [];
+    final detecciones = rep["detecciones"] as List<dynamic>? ?? [];
 
     Uint8List? fotoBytes;
     try {
@@ -140,21 +203,17 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
           : null;
     } catch (_) {}
 
-    final detalle = evidencia["detalle"].toString().toLowerCase();
+    final detalleEvidencia = evidencia["detalle"].toString().toLowerCase();
 
-    List<Map<String, dynamic>> implementos = [
-      {"name": "Casco", "key": "casco", "icon": Icons.health_and_safety},
-      {"name": "Chaleco", "key": "chaleco", "icon": Icons.checkroom},
-      {"name": "Botas", "key": "botas", "icon": Icons.safety_check},
-      {"name": "Guantes", "key": "guantes", "icon": Icons.pan_tool},
-      {"name": "Lentes", "key": "lentes", "icon": Icons.remove_red_eye},
-    ];
+    // ✅ Construir lista dinámica de implementos
+    final implementos = construirImplementosPorZona(
+      eppsZona,
+      detecciones,
+      detalleEvidencia,
+    );
 
-    for (var item in implementos) {
-      item["detected"] = !detalle.contains(item["key"]);
-    }
-
-    final fails = implementos.where((i) => !i["detected"]).length;
+    // Contar incumplimientos
+    final fails = implementos.where((i) => !i["detectado"]).length;
 
     Color borderColor = Colors.grey.shade300;
     if (fails >= 3) borderColor = Colors.red;
@@ -200,9 +259,7 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 14),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,10 +287,18 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
 
-            GridView.count(
+            // ✅ Grid dinámica basada en epps_zona
+            implementos.isEmpty
+                ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                "Sin EPPs requeridos para esta zona",
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            )
+                : GridView.count(
               shrinkWrap: true,
               crossAxisCount: 2,
               crossAxisSpacing: 10,
@@ -241,14 +306,16 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
               physics: const NeverScrollableScrollPhysics(),
               childAspectRatio: 2.8,
               children: implementos.map((item) {
-                final detected = item["detected"];
+                final detectado = item["detectado"];
 
                 return Container(
                   decoration: BoxDecoration(
-                    color: detected ? Colors.green.shade50 : Colors.red.shade50,
+                    color: detectado
+                        ? Colors.green.shade50
+                        : Colors.red.shade50,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: detected ? Colors.green : Colors.red,
+                      color: detectado ? Colors.green : Colors.red,
                       width: 1.2,
                     ),
                   ),
@@ -256,25 +323,31 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                   child: Row(
                     children: [
                       Icon(item["icon"],
-                          color: detected ? Colors.green : Colors.red, size: 22),
+                          color:
+                          detectado ? Colors.green : Colors.red,
+                          size: 22),
                       const SizedBox(width: 10),
                       Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item["name"],
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: detected
-                                          ? Colors.green.shade900
-                                          : Colors.red)),
-                              Text(detected ? "Detectado" : "No detectado",
-                                  style: TextStyle(
-                                      color: detected
-                                          ? Colors.green.shade700
-                                          : Colors.red)),
-                            ],
-                          ))
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item["nombre"],
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: detectado
+                                        ? Colors.green.shade900
+                                        : Colors.red)),
+                            Text(
+                                detectado
+                                    ? "Detectado"
+                                    : "No detectado",
+                                style: TextStyle(
+                                    color: detectado
+                                        ? Colors.green.shade700
+                                        : Colors.red)),
+                          ],
+                        ),
+                      )
                     ],
                   ),
                 );
@@ -304,18 +377,15 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
 
   Future<void> _mostrarHistorialTrabajador(String cedula) async {
     try {
-      final data = await controller.obtenerHistorialTrabajador(
-        cedula: cedula,
-      );
+      final data = await controller.obtenerHistorialTrabajador(cedula: cedula);
 
       print("=============== RESPUESTA COMPLETA DE API ===============");
-      print(jsonEncode(data)); // Imprime en JSON bonito
+      print(jsonEncode(data));
       print("=========================================================");
 
       final historial = data["historial"] as List<dynamic>;
       final stats = data["estadisticas"];
 
-      // Imprime el primer elemento del historial para ver su estructura
       if (historial.isNotEmpty) {
         print("PRIMER ELEMENTO DEL HISTORIAL:");
         print(jsonEncode(historial[0]));
@@ -343,126 +413,6 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
         ),
       );
     }
-  }
-
-  Widget _buildHistorialCard(dynamic rep) {
-    final trabajador = rep["trabajador"];
-    final evidencia = rep["evidencia"];
-    final camara = rep["camara"];
-
-    Uint8List? fotoBytes;
-    try {
-      fotoBytes = rep["image"] != null ? base64Decode(rep["image"]) : null;
-    } catch (_) {}
-
-    final detalle = evidencia["detalle"].toLowerCase();
-
-    List<Map<String, dynamic>> implementos = [
-      {"name": "Casco", "key": "casco", "icon": Icons.health_and_safety},
-      {"name": "Chaleco", "key": "chaleco", "icon": Icons.checkroom},
-      {"name": "Botas", "key": "botas", "icon": Icons.safety_check},
-      {"name": "Guantes", "key": "guantes", "icon": Icons.pan_tool},
-      {"name": "Lentes", "key": "lentes", "icon": Icons.remove_red_eye},
-    ];
-
-    for (var item in implementos) {
-      item["detected"] = !detalle.contains(item["key"]);
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade300),
-        color: Colors.white,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    if (fotoBytes != null) mostrarImagenGrande(fotoBytes);
-                  },
-                  child: Container(
-                    width: 110,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: Colors.grey.shade300,
-                      image: fotoBytes != null
-                          ? DecorationImage(
-                        image: MemoryImage(fotoBytes),
-                        fit: BoxFit.cover,
-                      )
-                          : null,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "${trabajador["nombre"]} ${trabajador["apellido"]}",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 6),
-                      Text("Cámara: ${camara["codigo"]}"),
-                      const SizedBox(height: 6),
-                      Text(rep["timestamp"],
-                          style: const TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                )
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            Column(
-              children: implementos.map((item) {
-                final detected = item["detected"];
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  decoration: BoxDecoration(
-                    color: detected ? Colors.green.shade50 : Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border:
-                    Border.all(color: detected ? Colors.green : Colors.red),
-                  ),
-                  padding: const EdgeInsets.all(10),
-                  child: Row(
-                    children: [
-                      Icon(item["icon"],
-                          color: detected ? Colors.green : Colors.red),
-                      const SizedBox(width: 10),
-                      Text(item["name"],
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color:
-                              detected ? Colors.green.shade900 : Colors.red)),
-                      const Spacer(),
-                      Text(detected ? "Detectado" : "No Detectado",
-                          style: TextStyle(
-                              color: detected
-                                  ? Colors.green.shade700
-                                  : Colors.red)),
-                    ],
-                  ),
-                );
-              }).toList(),
-            )
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildFiltersSection() {
@@ -494,7 +444,8 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                     fontWeight: FontWeight.w600,
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 items: [
                   const DropdownMenuItem(
@@ -506,7 +457,8 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                         .map(
                           (i) => DropdownMenuItem(
                         value: i["id"].toString(),
-                        child: Text("${i["nombre"]} ${i["apellido"]}"),
+                        child:
+                        Text("${i["nombre"]} ${i["apellido"]}"),
                       ),
                     )
                         .toList(),
@@ -522,9 +474,7 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                 },
               ),
             ),
-
             const SizedBox(height: 14),
-
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
@@ -538,7 +488,8 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                     fontWeight: FontWeight.w600,
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 items: [
                   const DropdownMenuItem(
@@ -566,16 +517,15 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                 },
               ),
             ),
-
             const SizedBox(height: 14),
-
             Row(
               children: [
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xff073375), width: 1.5),
+                      border: Border.all(
+                          color: const Color(0xff073375), width: 1.5),
                     ),
                     child: TextFormField(
                       controller: TextEditingController(text: fechaDesde),
@@ -586,10 +536,13 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                           fontWeight: FontWeight.w600,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         suffixIcon: fechaDesde != null
                             ? IconButton(
-                          icon: const Icon(Icons.close, size: 20, color: Color(0xff073375)),
+                          icon: const Icon(Icons.close,
+                              size: 20,
+                              color: Color(0xff073375)),
                           onPressed: () {
                             setState(() => fechaDesde = null);
                             if (fechaHasta == null) {
@@ -610,21 +563,21 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                           lastDate: DateTime.now(),
                         );
                         if (date != null) {
-                          setState(() => fechaDesde = date.toString().split(" ")[0]);
+                          setState(() =>
+                          fechaDesde = date.toString().split(" ")[0]);
                           aplicarFiltros();
                         }
                       },
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xff073375), width: 1.5),
+                      border: Border.all(
+                          color: const Color(0xff073375), width: 1.5),
                     ),
                     child: TextFormField(
                       controller: TextEditingController(text: fechaHasta),
@@ -635,10 +588,13 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                           fontWeight: FontWeight.w600,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         suffixIcon: fechaHasta != null
                             ? IconButton(
-                          icon: const Icon(Icons.close, size: 20, color: Color(0xff073375)),
+                          icon: const Icon(Icons.close,
+                              size: 20,
+                              color: Color(0xff073375)),
                           onPressed: () {
                             setState(() => fechaHasta = null);
 
@@ -660,7 +616,8 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                           lastDate: DateTime.now(),
                         );
                         if (date != null) {
-                          setState(() => fechaHasta = date.toString().split(" ")[0]);
+                          setState(() =>
+                          fechaHasta = date.toString().split(" ")[0]);
                           aplicarFiltros();
                         }
                       },
@@ -682,7 +639,6 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
       body: Column(
         children: [
           _buildHeader(),
-
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -694,7 +650,8 @@ class _ReportesSupervisorPageState extends State<ReportesSupervisorPage> {
                   return _buildFiltersSection();
                 }
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
                   child: _buildReporteCard(reportes[index - 1]),
                 );
               },
