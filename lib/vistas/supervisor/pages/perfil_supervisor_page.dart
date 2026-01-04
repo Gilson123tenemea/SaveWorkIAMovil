@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 
 import '../../../sesion/user_session.dart';
 import '../../../controlador/supervisor/perfil_supervisor_controller.dart';
@@ -141,33 +142,75 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
   }
 
   Future<void> _handleSave() async {
-    if (nombreController.text.isEmpty ||
-        apellidoController.text.isEmpty ||
-        correoController.text.isEmpty ||
-        telefonoController.text.isEmpty) {
+    final nombre = nombreController.text.trim();
+    final apellido = apellidoController.text.trim();
+    final correo = correoController.text.trim();
+    final telefono = telefonoController.text.trim();
+
+    // 🔹 Campos obligatorios
+    if (nombre.isEmpty ||
+        apellido.isEmpty ||
+        correo.isEmpty ||
+        telefono.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Completa todos los campos')),
       );
       return;
     }
 
-    if (!correoController.text.contains('@')) {
+    // 🔹 Nombre y apellido (solo letras, min 2, max 50)
+    final soloLetrasRegex = RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{2,50}$');
+
+    if (!soloLetrasRegex.hasMatch(nombre)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El correo no es valido')),
+        const SnackBar(
+          content: Text('El nombre solo debe contener letras (2–50 caracteres)'),
+        ),
       );
       return;
     }
 
+    if (!soloLetrasRegex.hasMatch(apellido)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+          Text('El apellido solo debe contener letras (2–50 caracteres)'),
+        ),
+      );
+      return;
+    }
+
+    // 🔹 Teléfono (solo números, longitud exacta)
+    if (!RegExp(r'^\d{10}$').hasMatch(telefono)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El teléfono debe tener exactamente 10 dígitos'),
+        ),
+      );
+      return;
+    }
+
+    // 🔹 Correo electrónico (formato válido)
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    if (!emailRegex.hasMatch(correo)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El correo electrónico no es válido')),
+      );
+      return;
+    }
+
+    // 🔹 Enviar al backend
     final result = await controller.actualizar(
       UserSession().idSupervisor!,
-      nombreController.text,
-      apellidoController.text,
-      correoController.text,
-      telefonoController.text,
+      nombre,
+      apellido,
+      correo,
+      telefono,
     );
 
     if (!mounted) return;
 
+    // 🔹 Respuesta
     if (result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -176,10 +219,10 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
         ),
       );
       setState(() {
-        perfilData!['nombre'] = nombreController.text;
-        perfilData!['apellido'] = apellidoController.text;
-        perfilData!['correo'] = correoController.text;
-        perfilData!['telefono'] = telefonoController.text;
+        perfilData!['nombre'] = nombre;
+        perfilData!['apellido'] = apellido;
+        perfilData!['correo'] = correo;
+        perfilData!['telefono'] = telefono;
         editMode = false;
       });
     } else {
@@ -191,6 +234,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       );
     }
   }
+
 
   void _handleCancel() {
     if (perfilData != null) {
@@ -687,6 +731,10 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                     child: isTextEditingController && editMode
                         ? TextField(
                       controller: e.value as TextEditingController,
+                      inputFormatters: _getInputFormatters(e.key),
+                      maxLength: _getMaxLength(e.key),
+                      keyboardType: _getKeyboardType(e.key),
+
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -714,6 +762,50 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       ),
     );
   }
+  List<TextInputFormatter>? _getInputFormatters(String field) {
+    switch (field) {
+      case "Nombre":
+      case "Apellido":
+        return [
+          FilteringTextInputFormatter.allow(
+            RegExp(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]"),
+          ),
+        ];
+
+      case "Telefono":
+        return [
+          FilteringTextInputFormatter.digitsOnly,
+        ];
+
+      default:
+        return null;
+    }
+  }
+
+  TextInputType _getKeyboardType(String field) {
+    switch (field) {
+      case "Telefono":
+        return TextInputType.phone;
+      case "Correo":
+        return TextInputType.emailAddress;
+      default:
+        return TextInputType.text;
+    }
+  }
+  int? _getMaxLength(String field) {
+    switch (field) {
+      case "Nombre":
+      case "Apellido":
+        return 50;
+
+      case "Telefono":
+        return 10; // o lo que uses en backend
+
+      default:
+        return null;
+    }
+  }
+
 
   Widget _buildPasswordCard({required VoidCallback onChangePasswordPressed}) {
     return Container(
