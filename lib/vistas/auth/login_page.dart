@@ -53,7 +53,7 @@ class _LoginPageState extends State<LoginPage> {
       UserSession().idEmpresaTrabajador = result["id_empresa_trabajador"];
       Navigator.pushReplacementNamed(context, "/trabajador/menu");
     } else {
-      setState(() => errorMsg = "Rol no reconocido: $rol");
+      setState(() => errorMsg = "Credenciales Incorrectas: $rol");
     }
   }
 

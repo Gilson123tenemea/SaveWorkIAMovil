@@ -134,31 +134,26 @@ class _HomeSupervisorPageState extends State<HomeSupervisorPage> {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: Image.asset(
-                          "assets/img/supervisor_welcome.png",
-                          fit: BoxFit.contain,
-                        ),
+                      Icon(
+                        Icons.assignment_turned_in,
+                        size: 40,
+                        color: Color(0xff073375),
                       ),
-                      const SizedBox(width: 14),
-
+                      SizedBox(width: 14),
                       // TEXTO
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             "¡Bienvenido!",
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
                             ),
                           ),
                           SizedBox(height: 4),
                           Text(
-                            "Gestionemos la seguridad hoy",
+                            "Gestionesmos la seguridad hoy",
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.black54,

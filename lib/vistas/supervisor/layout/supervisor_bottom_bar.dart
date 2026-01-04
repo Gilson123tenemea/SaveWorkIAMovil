@@ -47,7 +47,7 @@ class _SupervisorBottomBarState extends State<SupervisorBottomBar> {
           ),
           SalomonBottomBarItem(
             icon: const Icon(Icons.bar_chart),
-            title: const Text("Estadísticas"),
+            title: const Text("Trabajadores"),
             selectedColor: Colors.blue,
           ),
           SalomonBottomBarItem(

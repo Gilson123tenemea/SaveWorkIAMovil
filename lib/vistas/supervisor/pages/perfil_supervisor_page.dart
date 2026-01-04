@@ -616,14 +616,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                           if (!editMode) ...[
                             SizedBox(
                               width: 100,
-                              child: ElevatedButton(
-                                onPressed: () => Navigator.pop(context),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey.shade300,
-                                ),
-                                child: const Text("Cerrar",
-                                    style: TextStyle(color: Colors.black)),
-                              ),
+
                             ),
                             const SizedBox(width: 10),
                             SizedBox(
