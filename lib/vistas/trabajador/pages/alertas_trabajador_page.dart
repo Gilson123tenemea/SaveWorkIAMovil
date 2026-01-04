@@ -110,7 +110,6 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
 
           const SizedBox(height: 12),
 
-          // 👋 TARJETA DE BIENVENIDA
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
@@ -202,9 +201,11 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
                 final alerta = alertas[index];
                 final evidencia = alerta["evidencia"];
                 final camara = alerta["camara"];
+                final eppsZona = List<String>.from(alerta["epps_zona"] ?? []);
+                final detecciones = List<String>.from(alerta["detecciones"] ?? []);
 
                 final bool revisado =
-                    evidencia["estado"] == true;
+                    evidencia["estado"] == false;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -233,7 +234,6 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
                       crossAxisAlignment:
                       CrossAxisAlignment.start,
                       children: [
-                        // HEADER CON ESTADO Y FECHA
                         Row(
                           mainAxisAlignment:
                           MainAxisAlignment.spaceBetween,
@@ -348,9 +348,7 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
 
                         const SizedBox(height: 16),
 
-                        // GRID DE IMPLEMENTOS
-                        _buildImplementosGrid(
-                            evidencia["detalle"] ?? ""),
+                        _buildImplementosGrid(eppsZona, detecciones),
 
                         const SizedBox(height: 16),
 
@@ -457,24 +455,35 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
     );
   }
 
-  // =============================
-  // 🧩 GRID DE IMPLEMENTOS
-  // =============================
-  Widget _buildImplementosGrid(String detalle) {
-    final detalleMin = detalle.toLowerCase();
+  Widget _buildImplementosGrid(List<String> eppsZona, List<String> detecciones) {
+    // Mapeo de nombres a iconos
+    final Map<String, IconData> iconMap = {
+      "casco": Icons.health_and_safety,
+      "chaleco": Icons.checkroom,
+      "botas": Icons.safety_check,
+      "guantes": Icons.pan_tool,
+      "gafas": Icons.remove_red_eye,
+      "lentes": Icons.remove_red_eye,
+      "mascarilla": Icons.masks,
+      "arnés": Icons.accessibility,
+      "cinturón": Icons.checkroom,
+    };
 
-    final items = [
-      {"name": "Casco", "key": "casco", "icon": Icons.health_and_safety},
-      {"name": "Chaleco", "key": "chaleco", "icon": Icons.checkroom},
-      {"name": "Botas", "key": "botas", "icon": Icons.safety_check},
-      {"name": "Guantes", "key": "guantes", "icon": Icons.pan_tool},
-      {"name": "Lentes", "key": "lentes", "icon": Icons.remove_red_eye},
-    ];
+    final deteccionesLower = detecciones
+        .map((d) => d.toLowerCase())
+        .toList();
 
-    // Detectar si el implemento está en el detalle (si está = no detectado = rojo)
-    for (var item in items) {
-      item["detected"] = !detalleMin.contains(item["key"] as String);
-    }
+    final items = eppsZona.map((epp) {
+      final eppLower = epp.toLowerCase();
+
+      final noDetectado = deteccionesLower.any((d) => d.contains(eppLower));
+
+      return {
+        "name": epp,
+        "icon": iconMap[eppLower] ?? Icons.shield,
+        "noDetectado": noDetectado,
+      };
+    }).toList();
 
     return GridView.count(
       shrinkWrap: true,
@@ -484,16 +493,16 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
       physics: const NeverScrollableScrollPhysics(),
       childAspectRatio: 3.5,
       children: items.map((item) {
-        final detected = item["detected"] as bool;
-        final name = (item["name"] as String?) ?? "Implemento";
+        final noDetectado = item["noDetectado"] as bool;
+        final name = item["name"] as String;
         final icon = item["icon"] as IconData;
 
         return Container(
           decoration: BoxDecoration(
-            color: detected ? Colors.green.shade50 : Colors.red.shade50,
+            color: noDetectado ? Colors.red.shade50 : Colors.green.shade50,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: detected ? Colors.green.shade300 : Colors.red.shade300,
+              color: noDetectado ? Colors.red.shade300 : Colors.green.shade300,
               width: 2,
             ),
           ),
@@ -503,7 +512,7 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
                 padding: const EdgeInsets.only(left: 14),
                 child: Icon(
                   icon,
-                  color: detected ? Colors.green : Colors.red,
+                  color: noDetectado ? Colors.red : Colors.green,
                   size: 28,
                 ),
               ),
@@ -515,7 +524,7 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
                   children: [
                     Text(
                       name,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         color: Colors.black87,
                         fontSize: 14,
@@ -523,9 +532,9 @@ class _AlertasTrabajadorPageState extends State<AlertasTrabajadorPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      detected ? "Detectado" : "No detectado",
+                      noDetectado ? "No detectado" : "Detectado",
                       style: TextStyle(
-                        color: detected ? Colors.green : Colors.red,
+                        color: noDetectado ? Colors.red : Colors.green,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),

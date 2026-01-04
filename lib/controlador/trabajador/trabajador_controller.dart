@@ -6,7 +6,11 @@ class TrabajadorController with ChangeNotifier {
   Map<String, dynamic> perfil = {};
   Map<String, dynamic> estadisticas = {};
   Map<String, dynamic> incumplimientos = {};
+  Map<String, dynamic> asistencias = {};
 
+
+  bool isLoading = false;
+  String? error;
   // 🔹 Obtener perfil del trabajador
   Future<void> obtenerPerfil(int idTrabajador) async {
     try {
@@ -35,5 +39,44 @@ class TrabajadorController with ChangeNotifier {
     } catch (e) {
       print("Error al obtener incumplimientos: $e");
     }
+  }
+
+  Future<void> obtenerAsistencias(
+      int idTrabajador, {
+        int? mes,
+        int? ano,
+      }) async {
+    try {
+      isLoading = true;
+      error = null;
+      notifyListeners();
+
+      asistencias = await TrabajadorApi.obtenerAsistencias(
+        idTrabajador,
+        mes: mes,
+        ano: ano,
+      );
+      isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      error = "Error al obtener asistencias: $e";
+      print(error);
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 🔹 Obtener asistencias de un mes y año específico
+  Future<void> obtenerAsistenciasPorMesAno(
+  int idTrabajador,
+  int mes,
+  int ano,
+  ) async {
+  await obtenerAsistencias(idTrabajador, mes: mes, ano: ano);
+  }
+
+  // 🔹 Obtener asistencias de un año específico
+  Future<void> obtenerAsistenciasPorAno(int idTrabajador, int ano) async {
+  await obtenerAsistencias(idTrabajador, ano: ano);
   }
 }

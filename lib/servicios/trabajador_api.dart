@@ -4,15 +4,13 @@ import '../config/api.dart';  // Usamos api.dart para la URL base
 
 class TrabajadorApi {
 
-  // 🔹 Obtener perfil del trabajador
   static Future<Map<String, dynamic>> obtenerPerfil(int idTrabajador) async {
-    final url = Uri.parse(api("/trabajadores/$idTrabajador/perfil")); // Reemplazamos el id del trabajador en la URL
+    final url = Uri.parse(api("/trabajadores/$idTrabajador/perfil"));
 
     final response = await http.get(url);
     return jsonDecode(response.body);
   }
 
-  // 🔹 Obtener estadísticas del trabajador
     static Future<Map<String, dynamic>> obtenerEstadisticas(int idTrabajador) async {
     final url = Uri.parse(api("/trabajadores/$idTrabajador/estadisticas")); // URL con el id
 
@@ -20,11 +18,33 @@ class TrabajadorApi {
     return jsonDecode(response.body);
   }
 
-  // 🔹 Obtener historial de incumplimientos del trabajador
   static Future<Map<String, dynamic>> obtenerIncumplimientos(int idTrabajador) async {
     final url = Uri.parse(api("/trabajadores/$idTrabajador/incumplimientos")); // URL con el id
 
     final response = await http.get(url);
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> obtenerAsistencias(
+      int idTrabajador, {
+        int? mes,
+        int? ano,
+      }) async {
+    String url = "/trabajadores/$idTrabajador/asistencias";
+
+    List<String> params = [];
+    if (mes != null) {
+      params.add("mes=$mes");
+    }
+    if (ano != null) {
+      params.add("año=$ano");
+    }
+
+    if (params.isNotEmpty) {
+      url += "?${params.join('&')}";
+    }
+
+    final response = await http.get(Uri.parse(api(url)));
     return jsonDecode(response.body);
   }
 }
