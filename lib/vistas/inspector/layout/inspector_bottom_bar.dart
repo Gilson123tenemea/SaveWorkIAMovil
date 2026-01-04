@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // 👈 AGREGAR
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
+import '../../../controlador/inspector/estadisticas_controller.dart'; // 👈 AGREGAR
 import '../pages/home_inspector_page.dart';
 import '../pages/zonas_inspector_page.dart';
 import '../pages/incumplimientos_inspector_page.dart';
@@ -25,35 +27,43 @@ class _InspectorBottomBarState extends State<InspectorBottomBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: SalomonBottomBar(
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        items: [
-          SalomonBottomBarItem(
-            icon: const Icon(Icons.home),
-            title: const Text("Inicio"),
-            selectedColor: Colors.blue,
-          ),
-          SalomonBottomBarItem(
-            icon: const Icon(Icons.map),
-            title: const Text("Zonas"),
-            selectedColor: Colors.green,
-          ),
-          SalomonBottomBarItem(
-            icon: const Icon(Icons.warning),
-            title: const Text("Incumplimientos"),
-            selectedColor: Colors.red,
-          ),
-          SalomonBottomBarItem(
-            icon: const Icon(Icons.person),
-            title: const Text("Perfil"),
-            selectedColor: Colors.teal,
-          ),
-        ],
+    return ChangeNotifierProvider(
+      create: (_) => EstadisticasController(),
+      child: Scaffold(
+        body: _pages[_selectedIndex],
+        bottomNavigationBar: SalomonBottomBar(
+          currentIndex: _selectedIndex,
+          selectedItemColor: Colors.blue,
+          unselectedItemColor: Colors.grey,
+          onTap: (index) => setState(() => _selectedIndex = index),
+          items: [
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.home),
+              title: const Text("Inicio"),
+              selectedColor: Colors.purple,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.bar_chart),
+              title: const Text("Estadísticas"),
+              selectedColor: Colors.blue,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.warning),
+              title: const Text("Incumplimientos"),
+              selectedColor: Colors.red,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.notification_add),
+              title: const Text("Notificaciones"),
+              selectedColor: Colors.orange,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.person),
+              title: const Text("Perfil"),
+              selectedColor: Colors.teal,
+            ),
+          ],
+        ),
       ),
     );
   }
