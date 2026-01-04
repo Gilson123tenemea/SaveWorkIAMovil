@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // 👈 AGREGAR
+import 'package:provider/provider.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
-import '../../../controlador/inspector/estadisticas_controller.dart'; // 👈 AGREGAR
+import '../../../controlador/inspector/estadisticas_controller.dart';
 import '../pages/home_inspector_page.dart';
 import '../pages/zonas_inspector_page.dart';
 import '../pages/incumplimientos_inspector_page.dart';
+import '../pages/notificaciones_inspector_page.dart';
 import '../pages/perfil_inspector_page.dart';
 
 class InspectorBottomBar extends StatefulWidget {
@@ -22,6 +23,7 @@ class _InspectorBottomBarState extends State<InspectorBottomBar> {
     HomeInspectorPage(),
     ZonasInspectorPage(),
     IncumplimientosInspectorPage(),
+    NotificacionesInspectorPage(),
     PerfilInspectorPage(),
   ];
 
