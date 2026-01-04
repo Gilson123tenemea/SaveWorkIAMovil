@@ -234,7 +234,6 @@ class _IncumplimientosInspectorPageState
     );
   }
 
-  // ✅ helper: normaliza estado venga como bool/int/null/String
   bool _esRevisado(dynamic estadoRaw) {
     if (estadoRaw == null) return false;
     if (estadoRaw is bool) return estadoRaw;          // true/false
@@ -412,8 +411,11 @@ class _IncumplimientosInspectorPageState
             ),
             const SizedBox(height: 18),
 
-            // GRID DE IMPLEMENTOS
-            _buildImplementosGrid(evidencia["detalle"] ?? ""),
+            // GRID DE IMPLEMENTOS - ✅ CAMBIO AQUÍ
+            _buildImplementosGrid(
+              evidencia["detalle"] ?? "",
+              rep["epps_zona"] ?? [],
+            ),
             const SizedBox(height: 16),
 
             // MOSTRAR OBSERVACIONES SI EXISTEN
@@ -556,20 +558,38 @@ class _IncumplimientosInspectorPageState
     );
   }
 
-  Widget _buildImplementosGrid(String detalle) {
+  // ✅ FUNCIÓN ACTUALIZADA
+  Widget _buildImplementosGrid(String detalle, List<dynamic> eppsZona) {
     final detalleMin = detalle.toLowerCase();
 
-    final items = [
-      {"name": "Casco", "key": "casco", "icon": Icons.health_and_safety},
-      {"name": "Chaleco", "key": "chaleco", "icon": Icons.checkroom},
-      {"name": "Botas", "key": "botas", "icon": Icons.safety_check},
-      {"name": "Guantes", "key": "guantes", "icon": Icons.pan_tool},
-      {"name": "Lentes", "key": "lentes", "icon": Icons.remove_red_eye},
-    ];
+    // 🔹 Mapeo de EPPs con iconos
+    final Map<String, Map<String, dynamic>> eppInfo = {
+      "casco": {"name": "Casco", "icon": Icons.health_and_safety},
+      "chaleco": {"name": "Chaleco", "icon": Icons.checkroom},
+      "botas": {"name": "Botas", "icon": Icons.safety_check},
+      "guantes": {"name": "Guantes", "icon": Icons.pan_tool},
+      "lentes": {"name": "Lentes", "icon": Icons.remove_red_eye},
+      "gafas": {"name": "Gafas", "icon": Icons.remove_red_eye},
+    };
 
-    for (var item in items) {
-      item["detected"] = !detalleMin.contains(item["key"] as String);
-    }
+    // 🔹 Filtrar solo los EPPs de la zona
+    final items = eppsZona.map((epp) {
+      final eppKey = epp.toString().toLowerCase();
+      final info = eppInfo[eppKey] ?? {
+        "name": epp.toString(),
+        "icon": Icons.security
+      };
+
+      // ✅ Si NO está en detalle (falta X), fue detectado → verde
+      // ❌ Si SÍ está en detalle (falta X), NO fue detectado → rojo
+      final detected = !detalleMin.contains(eppKey);
+
+      return {
+        "name": info["name"],
+        "icon": info["icon"],
+        "detected": detected,
+      };
+    }).toList();
 
     return GridView.count(
       shrinkWrap: true,

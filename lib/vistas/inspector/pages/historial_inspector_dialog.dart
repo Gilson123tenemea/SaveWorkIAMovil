@@ -155,11 +155,12 @@ class HistorialInspectorDialog extends StatelessWidget {
     );
   }
 
-  // ================= CARD HISTORIAL =================
+  // ================= CARD HISTORIAL - ✅ ACTUALIZADO =================
   Widget _buildHistorialCard(dynamic r, BuildContext context) {
     final trabajador = r["trabajador"];
     final evidencia = r["evidencia"];
     final camara = r["camara"];
+    final eppsZona = r["epps_zona"] ?? [];
 
     final String? observaciones =
     evidencia?["observaciones"]?.toString().trim();
@@ -169,17 +170,34 @@ class HistorialInspectorDialog extends StatelessWidget {
     final foto = decode(evidencia?["foto_base64"]);
     final detalle = evidencia?["detalle"]?.toString().toLowerCase() ?? "";
 
-    List<Map<String, dynamic>> implementos = [
-      {"name": "Casco", "key": "casco", "icon": Icons.health_and_safety},
-      {"name": "Chaleco", "key": "chaleco", "icon": Icons.checkroom},
-      {"name": "Botas", "key": "botas", "icon": Icons.safety_check},
-      {"name": "Guantes", "key": "guantes", "icon": Icons.pan_tool},
-      {"name": "Lentes", "key": "lentes", "icon": Icons.remove_red_eye},
-    ];
+    // 🔹 Mapeo de EPPs con iconos
+    final Map<String, Map<String, dynamic>> eppInfo = {
+      "casco": {"name": "Casco", "icon": Icons.health_and_safety},
+      "chaleco": {"name": "Chaleco", "icon": Icons.checkroom},
+      "botas": {"name": "Botas", "icon": Icons.safety_check},
+      "guantes": {"name": "Guantes", "icon": Icons.pan_tool},
+      "lentes": {"name": "Lentes", "icon": Icons.remove_red_eye},
+      "gafas": {"name": "Gafas", "icon": Icons.remove_red_eye},
+    };
 
-    for (var item in implementos) {
-      item["detected"] = !detalle.contains(item["key"]);
-    }
+    // ✅ Filtrar solo los EPPs de la zona
+    List<Map<String, dynamic>> implementos = eppsZona.map<Map<String, dynamic>>((epp) {
+      final eppKey = epp.toString().toLowerCase();
+      final info = eppInfo[eppKey] ?? {
+        "name": epp.toString(),
+        "icon": Icons.security
+      };
+
+      // ✅ Si NO está en detalle (falta X), fue detectado → verde
+      // ❌ Si SÍ está en detalle (falta X), NO fue detectado → rojo
+      final detected = !detalle.contains(eppKey);
+
+      return {
+        "name": info["name"],
+        "icon": info["icon"],
+        "detected": detected,
+      };
+    }).toList();
 
     final incumplidos = implementos.where((i) => !i["detected"]).length;
     final hasViolation = incumplidos > 0;
@@ -317,7 +335,7 @@ class HistorialInspectorDialog extends StatelessWidget {
                 ),
               ),
 
-            // -------- IMPLEMENTOS --------
+            // -------- IMPLEMENTOS - ✅ ACTUALIZADO --------
             GridView.count(
               shrinkWrap: true,
               crossAxisCount: 3,
