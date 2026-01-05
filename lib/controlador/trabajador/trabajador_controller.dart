@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '/servicios/trabajador_api.dart';
 
 class TrabajadorController with ChangeNotifier {
-  // Variables de estado
   Map<String, dynamic> perfil = {};
   Map<String, dynamic> estadisticas = {};
   Map<String, dynamic> incumplimientos = {};
@@ -11,31 +10,28 @@ class TrabajadorController with ChangeNotifier {
 
   bool isLoading = false;
   String? error;
-  // 🔹 Obtener perfil del trabajador
   Future<void> obtenerPerfil(int idTrabajador) async {
     try {
       perfil = await TrabajadorApi.obtenerPerfil(idTrabajador);
-      notifyListeners(); // Notifica a la vista para actualizar
+      notifyListeners();
     } catch (e) {
       print("Error al obtener perfil: $e");
     }
   }
 
-  // 🔹 Obtener estadísticas del trabajador
   Future<void> obtenerEstadisticas(int idTrabajador) async {
     try {
       estadisticas = await TrabajadorApi.obtenerEstadisticas(idTrabajador);
-      notifyListeners(); // Notifica a la vista para actualizar
+      notifyListeners();
     } catch (e) {
       print("Error al obtener estadísticas: $e");
     }
   }
 
-  // 🔹 Obtener historial de incumplimientos del trabajador
   Future<void> obtenerIncumplimientos(int idTrabajador) async {
     try {
       incumplimientos = await TrabajadorApi.obtenerIncumplimientos(idTrabajador);
-      notifyListeners(); // Notifica a la vista para actualizar
+      notifyListeners();
     } catch (e) {
       print("Error al obtener incumplimientos: $e");
     }
@@ -66,7 +62,6 @@ class TrabajadorController with ChangeNotifier {
     }
   }
 
-  // 🔹 Obtener asistencias de un mes y año específico
   Future<void> obtenerAsistenciasPorMesAno(
   int idTrabajador,
   int mes,
@@ -75,8 +70,42 @@ class TrabajadorController with ChangeNotifier {
   await obtenerAsistencias(idTrabajador, mes: mes, ano: ano);
   }
 
-  // 🔹 Obtener asistencias de un año específico
   Future<void> obtenerAsistenciasPorAno(int idTrabajador, int ano) async {
   await obtenerAsistencias(idTrabajador, ano: ano);
+  }
+
+  Future<void> actualizarTrabajador(
+      int idTrabajador, {
+        String? nombre,
+        String? apellido,
+        String? correo,
+        String? telefono,
+        String? cargo,
+      }) async {
+    try {
+      isLoading = true;
+      error = null;
+      notifyListeners();
+
+      final resultado = await TrabajadorApi.actualizarTrabajador(
+        idTrabajador,
+        nombre: nombre,
+        apellido: apellido,
+        correo: correo,
+        telefono: telefono,
+        cargo: cargo,
+      );
+
+      perfil = resultado;
+      isLoading = false;
+      error = null;
+      notifyListeners();
+    } catch (e) {
+      error = "Error al actualizar trabajador: $e";
+      print(error);
+      isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 }
