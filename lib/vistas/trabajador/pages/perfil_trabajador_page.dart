@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../sesion/user_session.dart';
 import '../../../servicios/trabajador_api.dart';
 import '../../../controlador/auth/foto_perfil_controller.dart';
+import '../../../controlador/supervisor/cambio_contra_controller.dart';
 
 class PerfilTrabajadorPage extends StatefulWidget {
   const PerfilTrabajadorPage({super.key});
@@ -32,9 +33,31 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
   final FotoPerfilController _fotoController = FotoPerfilController();
   final ImagePicker _imagePicker = ImagePicker();
 
+  // =============================
+  // VARIABLES PARA CAMBIO DE CONTRASEÑA
+  // =============================
+  final CambioContraController cambioContraController = CambioContraController();
+  bool showPasswordModal = false;
+  String passwordStep = "request";
+  bool isLoadingToken = false;
+  bool isChangingPassword = false;
+  bool showNewPassword = false;
+  bool showConfirmPassword = false;
+
+  late TextEditingController tokenController;
+  late TextEditingController nuevaContraseaController;
+  late TextEditingController confirmarContraseaController;
+
+  String? tokenError;
+  String? nuevaContraseaError;
+  String? confirmarContraseaError;
+
   @override
   void initState() {
     super.initState();
+    tokenController = TextEditingController();
+    nuevaContraseaController = TextEditingController();
+    confirmarContraseaController = TextEditingController();
     _cargarPerfil();
   }
 
@@ -46,7 +69,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
     if (idPersona == null) return;
 
     final data = await TrabajadorApi.obtenerPerfil(idTrabajador);
-
 
     if (data.containsKey('foto_base64') && !data.containsKey('fotoBase64')) {
       data['fotoBase64'] = data['foto_base64'];
@@ -61,11 +83,9 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
 
   void _inicializarControllers() {
     nombreController = TextEditingController(text: perfil!["nombre"] ?? "");
-    apellidoController =
-        TextEditingController(text: perfil!["apellido"] ?? "");
+    apellidoController = TextEditingController(text: perfil!["apellido"] ?? "");
     correoController = TextEditingController(text: perfil!["correo"] ?? "");
-    telefonoController =
-        TextEditingController(text: perfil!["telefono"] ?? "");
+    telefonoController = TextEditingController(text: perfil!["telefono"] ?? "");
     cargoController = TextEditingController(text: perfil!["cargo"] ?? "");
   }
 
@@ -165,8 +185,7 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
 
       print('📤 Actualizando foto para ID Persona: $idPersona');
 
-      final resultado =
-      await _fotoController.actualizarFotoPerfilActual(base64);
+      final resultado = await _fotoController.actualizarFotoPerfilActual(base64);
 
       if (resultado['success']) {
         setState(() {
@@ -207,7 +226,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
     setState(() => isUpdating = true);
 
     try {
-      // 1️⃣ Actualizar datos del trabajador
       await TrabajadorApi.actualizarTrabajador(
         idTrabajador,
         nombre: nombreController.text.trim(),
@@ -217,13 +235,11 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
         cargo: cargoController.text.trim(),
       );
 
-      // 2️⃣ Si hay foto nueva, subirla también
       if (_fotoBase64Preparada != null) {
         final idPersona = UserSession().idPersona;
         if (idPersona != null) {
           print('📤 Subiendo foto para ID Persona: $idPersona');
-          final resultado =
-          await _fotoController.actualizarFotoPerfilActual(_fotoBase64Preparada!);
+          final resultado = await _fotoController.actualizarFotoPerfilActual(_fotoBase64Preparada!);
 
           if (!resultado['success']) {
             _mostrarError("Datos guardados pero hay error con foto: ${resultado['mensaje']}");
@@ -233,7 +249,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
         }
       }
 
-      // 3️⃣ Recargar perfil para reflejar todos los cambios
       await _cargarPerfil();
 
       setState(() {
@@ -317,6 +332,625 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
     );
   }
 
+  // =============================
+  // MÉTODOS PARA CAMBIO DE CONTRASEÑA
+  // =============================
+  Map<String, bool> _getPasswordValidations() {
+    final password = nuevaContraseaController.text;
+    return {
+      'minLength': password.length >= 8,
+      'hasLowercase': password.contains(RegExp(r'[a-z]')),
+      'hasUppercase': password.contains(RegExp(r'[A-Z]')),
+      'hasNumber': password.contains(RegExp(r'\d')),
+      'hasSpecial': password.contains(RegExp(r'[@$!%*#?&]')),
+    };
+  }
+
+  bool _isPasswordValid() {
+    final validations = _getPasswordValidations();
+    return validations.values.every((v) => v);
+  }
+
+  Future<void> _handleRequestToken() async {
+    if (correoController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El correo es requerido')),
+      );
+      return;
+    }
+
+    final idPersona = UserSession().idPersona;
+    if (idPersona == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo identificar el usuario')),
+      );
+      return;
+    }
+
+    setState(() => isLoadingToken = true);
+
+    final result = await cambioContraController.solicitar(
+      correoController.text,
+      idPersona,  // ← Usar el valor de sesión
+    );
+
+    if (!mounted) return;
+
+    if (result['success']) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Token enviado a tu correo'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (mounted) {
+        setState(() {
+          isLoadingToken = false;
+          passwordStep = "verify";
+        });
+      }
+    } else {
+      setState(() => isLoadingToken = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['mensaje'] ?? 'Error al enviar token'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleChangePassword() async {
+    setState(() {
+      tokenError = null;
+      nuevaContraseaError = null;
+      confirmarContraseaError = null;
+    });
+
+    if (tokenController.text.trim().isEmpty) {
+      setState(() => tokenError = "El token es obligatorio");
+      return;
+    }
+
+    if (nuevaContraseaController.text.trim().isEmpty) {
+      setState(() => nuevaContraseaError = "La contraseña es obligatoria");
+      return;
+    }
+
+    if (confirmarContraseaController.text.trim().isEmpty) {
+      setState(() => confirmarContraseaError = "Debes confirmar la contraseña");
+      return;
+    }
+
+    if (nuevaContraseaController.text.length < 8) {
+      setState(() => nuevaContraseaError = "La contraseña debe tener mínimo 8 caracteres");
+      return;
+    }
+
+    if (!_isPasswordValid()) {
+      setState(() => nuevaContraseaError = "La contraseña debe tener mayúsculas, minúsculas, números y caracteres especiales (@\$!%*#?&)");
+      return;
+    }
+
+    if (nuevaContraseaController.text != confirmarContraseaController.text) {
+      setState(() => confirmarContraseaError = "Las contraseñas no coinciden");
+      return;
+    }
+
+    final idPersona = UserSession().idPersona;
+    if (idPersona == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo identificar el usuario')),
+      );
+      return;
+    }
+
+    setState(() => isChangingPassword = true);
+
+    try {
+      await cambioContraController.confirmar(
+        tokenController.text,
+        nuevaContraseaController.text,
+        idPersona,
+      );
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Contraseña actualizada correctamente'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      _closePasswordModal();
+    } catch (e) {
+      final errorMessage = e.toString().replaceAll('Exception: ', '').toLowerCase();
+
+      if (errorMessage.contains('token')) {
+        setState(() {
+          if (errorMessage.contains('expirado')) {
+            tokenError = "El token ha expirado. Solicita uno nuevo";
+          } else if (errorMessage.contains('utilizado')) {
+            tokenError = "Este token ya fue utilizado";
+          } else {
+            tokenError = "Token incorrecto o inválido";
+          }
+        });
+      } else if (errorMessage.contains('contraseña') ||
+          errorMessage.contains('mayúscula') ||
+          errorMessage.contains('minúscula') ||
+          errorMessage.contains('número') ||
+          errorMessage.contains('caracter')) {
+        setState(() => nuevaContraseaError = errorMessage);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => isChangingPassword = false);
+    }
+  }
+
+  void _closePasswordModal() {
+    setState(() {
+      showPasswordModal = false;
+      passwordStep = "request";
+      isLoadingToken = false;
+      isChangingPassword = false;
+      showNewPassword = false;
+      showConfirmPassword = false;
+      tokenController.clear();
+      nuevaContraseaController.clear();
+      confirmarContraseaController.clear();
+      tokenError = null;
+      nuevaContraseaError = null;
+      confirmarContraseaError = null;
+    });
+  }
+
+  void _showPasswordModal() {
+    setState(() {
+      showPasswordModal = true;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              title: const Text(
+                "Cambiar Contraseña",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: isLoadingToken
+                    ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      height: 60,
+                      width: 60,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      "Enviando token a tu correo...",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: LinearProgressIndicator(
+                          minHeight: 8,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xff073375),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Esto puede tardar unos segundos...",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                )
+                    : passwordStep == "request"
+                    ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Se enviará un token de validación a tu correo electrónico para verificar tu identidad.",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Text(
+                            "Correo: ",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              correoController.text,
+                              style: const TextStyle(
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await _handleRequestToken();
+                          setModalState(() {});
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff073375),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          "Enviar Token",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+                    : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Token de Validación",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: tokenController,
+                            decoration: InputDecoration(
+                              hintText: "Ingresa el token recibido",
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              errorText: tokenError,
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                            onChanged: (_) {
+                              if (tokenError != null) {
+                                setModalState(() {
+                                  setState(() => tokenError = null);
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Nueva Contraseña",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: nuevaContraseaController,
+                            obscureText: !showNewPassword,
+                            decoration: InputDecoration(
+                              hintText: "Mínimo 8 caracteres",
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              errorText: nuevaContraseaError,
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(showNewPassword ? Icons.visibility : Icons.visibility_off),
+                                onPressed: () {
+                                  setModalState(() {
+                                    setState(() => showNewPassword = !showNewPassword);
+                                  });
+                                },
+                              ),
+                            ),
+                            onChanged: (_) {
+                              if (nuevaContraseaError != null) {
+                                setModalState(() {
+                                  setState(() => nuevaContraseaError = null);
+                                });
+                              }
+                              setModalState(() {});
+                            },
+                          ),
+                          if (nuevaContraseaController.text.isNotEmpty && nuevaContraseaError == null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Column(
+                                children: [
+                                  _buildPasswordRequirement(
+                                    "Mínimo 8 caracteres",
+                                    _getPasswordValidations()['minLength']!,
+                                  ),
+                                  _buildPasswordRequirement(
+                                    "Al menos una minúscula",
+                                    _getPasswordValidations()['hasLowercase']!,
+                                  ),
+                                  _buildPasswordRequirement(
+                                    "Al menos una mayúscula",
+                                    _getPasswordValidations()['hasUppercase']!,
+                                  ),
+                                  _buildPasswordRequirement(
+                                    "Al menos un número",
+                                    _getPasswordValidations()['hasNumber']!,
+                                  ),
+                                  _buildPasswordRequirement(
+                                    "Al menos un caracter especial (@\$!%*#?&)",
+                                    _getPasswordValidations()['hasSpecial']!,
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Confirmar Contraseña",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: confirmarContraseaController,
+                            obscureText: !showConfirmPassword,
+                            decoration: InputDecoration(
+                              hintText: "Repite la contraseña",
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              errorText: confirmarContraseaError,
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(showConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                                onPressed: () {
+                                  setModalState(() {
+                                    setState(() => showConfirmPassword = !showConfirmPassword);
+                                  });
+                                },
+                              ),
+                            ),
+                            onChanged: (_) {
+                              if (confirmarContraseaError != null) {
+                                setModalState(() {
+                                  setState(() => confirmarContraseaError = null);
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  setModalState(() {
+                                    setState(() {
+                                      passwordStep = "request";
+                                      tokenController.clear();
+                                      nuevaContraseaController.clear();
+                                      confirmarContraseaController.clear();
+                                      tokenError = null;
+                                      nuevaContraseaError = null;
+                                      confirmarContraseaError = null;
+                                    });
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey.shade300,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: const Text(
+                                  "Atrás",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: isChangingPassword
+                                    ? null
+                                    : () async {
+                                  await _handleChangePassword();
+                                  setModalState(() {});
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xff073375),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: isChangingPassword
+                                    ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                                    : const Text(
+                                  "Cambiar Contraseña",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _closePasswordModal();
+                  },
+                  child: const Text(
+                    "Cerrar",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) => _closePasswordModal());
+  }
+
+  Widget _buildPasswordRequirement(String text, bool isValid) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(
+            isValid ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 16,
+            color: isValid ? Colors.green : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: isValid ? Colors.green : Colors.grey.shade600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     nombreController.dispose();
@@ -324,6 +958,9 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
     correoController.dispose();
     telefonoController.dispose();
     cargoController.dispose();
+    tokenController.dispose();
+    nuevaContraseaController.dispose();
+    confirmarContraseaController.dispose();
     super.dispose();
   }
 
@@ -336,9 +973,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
           : SingleChildScrollView(
         child: Column(
           children: [
-            // =============================
-            // ENCABEZADO + CERRAR SESIÓN / EDITAR
-            // =============================
             Stack(
               children: [
                 Container(
@@ -376,7 +1010,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                     ),
                   ),
                 ),
-                // Botones de acción
                 Positioned(
                   top: 30,
                   right: 12,
@@ -398,9 +1031,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
 
             const SizedBox(height: 20),
 
-            // =============================
-            // FOTO + NOMBRE + CORREO
-            // =============================
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               padding: const EdgeInsets.all(20),
@@ -425,8 +1055,7 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xff073375)
-                                  .withOpacity(0.2),
+                              color: const Color(0xff073375).withOpacity(0.2),
                               blurRadius: 15,
                               offset: const Offset(0, 4),
                             ),
@@ -446,15 +1075,12 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                               : null,
                         ),
                       ),
-                      // Botón para cambiar foto (solo en modo edición)
                       if (isEditing)
                         Positioned(
                           bottom: 0,
                           right: 0,
                           child: GestureDetector(
-                            onTap: isUpdatingFoto
-                                ? null
-                                : _mostrarOpcionesImagen,
+                            onTap: isUpdatingFoto ? null : _mostrarOpcionesImagen,
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: const BoxDecoration(
@@ -473,9 +1099,7 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor:
-                                  AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                 ),
                               )
                                   : const Icon(
@@ -504,8 +1128,7 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                   const SizedBox(height: 6),
 
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xff073375).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -521,13 +1144,11 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                     ),
                   ),
 
-                  // Mensaje de imagen seleccionada
                   if (_imagenSeleccionada != null && isEditing)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -562,9 +1183,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
 
             const SizedBox(height: 25),
 
-            // =============================
-            // INFORMACIÓN PERSONAL (EDITABLE)
-            // =============================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Align(
@@ -602,7 +1220,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
               ),
               child: Column(
                 children: [
-                  // CÉDULA (No editable)
                   _buildInfoRow(
                     icon: Icons.credit_card,
                     label: "Cédula",
@@ -611,7 +1228,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                   ),
                   Divider(color: Colors.grey.withOpacity(0.2)),
 
-                  // NOMBRE (Editable)
                   isEditing
                       ? _buildEditableField(
                     icon: Icons.person,
@@ -632,7 +1248,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                   ),
                   Divider(color: Colors.grey.withOpacity(0.2)),
 
-                  // APELLIDO (Editable)
                   isEditing
                       ? _buildEditableField(
                     icon: Icons.person_outline,
@@ -653,7 +1268,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                   ),
                   Divider(color: Colors.grey.withOpacity(0.2)),
 
-                  // CORREO (Editable)
                   isEditing
                       ? _buildEditableField(
                     icon: Icons.email,
@@ -670,7 +1284,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                   ),
                   Divider(color: Colors.grey.withOpacity(0.2)),
 
-                  // TELÉFONO (Editable)
                   isEditing
                       ? _buildEditableField(
                     icon: Icons.phone,
@@ -696,8 +1309,102 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
             const SizedBox(height: 25),
 
             // =============================
-            // INFORMACIÓN LABORAL (CARGO EDITABLE)
+            // SEGURIDAD (CONTRASEÑA)
             // =============================
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Seguridad",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xff073375),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.grey.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff073375).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.lock,
+                      color: Color(0xff073375),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Contraseña",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black45,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          "••••••••",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _showPasswordModal,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: const Text(
+                      "Cambiar",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Align(
@@ -756,9 +1463,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
 
             const SizedBox(height: 25),
 
-            // =============================
-            // INFORMACIÓN DE EMPRESA
-            // =============================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Align(
@@ -823,9 +1527,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
 
             const SizedBox(height: 25),
 
-            // =============================
-            // ZONA ASIGNADA
-            // =============================
             if (perfil!["zona_asignada"] != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -891,16 +1592,14 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                     _buildInfoRow(
                       icon: Icons.location_on,
                       label: "Latitud",
-                      value: perfil!["zona_asignada"]["latitud"]
-                          .toString(),
+                      value: perfil!["zona_asignada"]["latitud"].toString(),
                       isEditable: false,
                     ),
                     const SizedBox(height: 14),
                     _buildInfoRow(
                       icon: Icons.location_on,
                       label: "Longitud",
-                      value: perfil!["zona_asignada"]["longitud"]
-                          .toString(),
+                      value: perfil!["zona_asignada"]["longitud"].toString(),
                       isEditable: false,
                       isLast: true,
                     ),
@@ -910,87 +1609,74 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
               const SizedBox(height: 25),
             ],
 
-            // =============================
-            // BOTONES DE ACCIÓN (Edición)
-            // =============================
-    // =============================
-    // BOTONES DE ACCIÓN (Edición)
-    // =============================
-    if (isEditing)
-    Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Row(
-    children: [
-    Expanded(
-    child: ElevatedButton.icon(
-    onPressed: isUpdating ? null : _cancelarEdicion,
-    icon: const Icon(Icons.close),
-    label: const Text("Cancelar"),
-    style: ElevatedButton.styleFrom(
-    backgroundColor: Colors.grey[400],
-    foregroundColor: Colors.white,
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    ),
-    ),
-    ),
-    const SizedBox(width: 12),
-    Expanded(
-    child: ElevatedButton.icon(
-    onPressed: isUpdating ? null : _guardarCambios,
-    icon: isUpdating
-    ? const SizedBox(
-    width: 20,
-    height: 20,
-    child: CircularProgressIndicator(
-    strokeWidth: 2,
-    valueColor: AlwaysStoppedAnimation<Color>(
-    Colors.white,
-    ),
-    ),
-    )
-        : const Icon(Icons.save),
-    label: Text(
-    isUpdating ? "Guardando..." : "Guardar",
-    ),
-    style: ElevatedButton.styleFrom(
-    backgroundColor: const Color(0xff073375),
-    foregroundColor: Colors.white,
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    ),
-    ),
-    ),
-    ],
-    ),
-    )
-    else
-    Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: SizedBox(
-    width: double.infinity,
-    child: ElevatedButton.icon(
-    onPressed: () {
-    setState(() => isEditing = true);
-    },
-    icon: const Icon(Icons.edit),
-    label: const Text("Editar Perfil"),
-    style: ElevatedButton.styleFrom(
-    backgroundColor: const Color(0xff073375),
-    foregroundColor: Colors.white,
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    ),
-    ),
-    ),
-    ),
-    const SizedBox(height: 30),
-    ],
-    ),
-    ),
+            if (isEditing)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: isUpdating ? null : _cancelarEdicion,
+                        icon: const Icon(Icons.close),
+                        label: const Text("Cancelar"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[400],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: isUpdating ? null : _guardarCambios,
+                        icon: isUpdating
+                            ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                            : const Icon(Icons.save),
+                        label: Text(isUpdating ? "Guardando..." : "Guardar"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff073375),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() => isEditing = true);
+                    },
+                    icon: const Icon(Icons.edit),
+                    label: const Text("Editar Perfil"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff073375),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
     );
   }
 
-  // =============================
-  // FILA DE INFORMACIÓN (No editable)
-  // =============================
   Widget _buildInfoRow({
     required IconData icon,
     required String label,
@@ -1047,9 +1733,6 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
     );
   }
 
-  // =============================
-  // CAMPO EDITABLE
-  // =============================
   Widget _buildEditableField({
     required IconData icon,
     required String label,
