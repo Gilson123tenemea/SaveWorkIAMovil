@@ -66,6 +66,7 @@ class LoginController {
   void _guardarSesionTrabajador(Map<String, dynamic> data) {
     final session = UserSession();
 
+    session.idPersona = data['id_persona'];
     session.idTrabajador = data['id_trabajador'];
     session.idEmpresaTrabajador = data['id_empresa'];
     session.nombreEmpresa = data['empresa'];
@@ -74,10 +75,9 @@ class LoginController {
     session.rol = data['rol'];
 
     print("✅ Sesión Trabajador guardada:");
-    print("   ID: ${session.idTrabajador}");
-    print("   Empresa ID: ${session.idEmpresaTrabajador}");
-    print("   Empresa: ${session.nombreEmpresa}");
+    print("   Persona ID: ${session.idPersona}");
   }
+
 
   bool tieneSesionActiva() {
     final session = UserSession();

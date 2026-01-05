@@ -7,6 +7,8 @@ class UserSession {
   int? idSupervisor;
   int? idInspector;
   int? idTrabajador;
+  int? idPersona;
+
 
   int? idEmpresa;
   int? idEmpresaSupervisor;
@@ -21,6 +23,7 @@ class UserSession {
     idSupervisor = null;
     idInspector = null;
     idTrabajador = null;
+    idPersona = null;
     idEmpresa = null;
     idEmpresaSupervisor = null;
     idEmpresaTrabajador = null;
