@@ -50,6 +50,7 @@ class LoginController {
     final session = UserSession();
 
     session.idInspector = data['id_inspector'];
+    session.idPersona = data['id_persona'];
     session.idEmpresa = data['id_empresa'];
     session.nombreEmpresa = data['empresa'];
     session.nombre = data['nombre'];
@@ -57,11 +58,13 @@ class LoginController {
     session.rol = data['rol'];
 
     print("✅ Sesión Inspector guardada:");
-    print("   ID: ${session.idInspector}");
+    print("   Inspector ID: ${session.idInspector}");
+    print("   Persona ID: ${session.idPersona}");
     print("   Empresa ID: ${session.idEmpresa}");
     print("   Empresa: ${session.nombreEmpresa}");
     print("   Puede ver estadísticas: ${session.puedeVerEstadisticas}");
   }
+
 
   void _guardarSesionTrabajador(Map<String, dynamic> data) {
     final session = UserSession();

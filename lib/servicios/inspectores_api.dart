@@ -54,4 +54,26 @@ class InspectoresApi {
       throw Exception("❌ Error al obtener perfil del inspector");
     }
   }
+
+  Future<Map<String, dynamic>> actualizarPerfilInspector(
+      int idInspector,
+      Map<String, dynamic> datosPerfil,
+      ) async {
+    final url = Uri.parse(
+        "${ApiConfig.baseUrl}/inspectores/perfil/$idInspector"
+    );
+
+    final response = await http.put(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(datosPerfil),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['detail'] ?? "❌ Error al actualizar perfil");
+    }
+  }
 }

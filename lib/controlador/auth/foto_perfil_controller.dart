@@ -3,7 +3,6 @@ import '../../servicios/foto_perfil.dart';
 import '../../sesion/user_session.dart';
 
 class FotoPerfilController {
-  /// Obtener foto de perfil del trabajador actual usando UserSession
   Future<Map<String, dynamic>> obtenerFotoPerfilActual() async {
     try {
       final session = UserSession();
@@ -38,7 +37,6 @@ class FotoPerfilController {
     }
   }
 
-  /// Obtener foto de perfil usando ID específico
   Future<Map<String, dynamic>> obtenerFotoPerfil(int idPersona) async {
     try {
       if (idPersona <= 0) {
@@ -66,7 +64,6 @@ class FotoPerfilController {
     }
   }
 
-  /// Actualizar foto de perfil del trabajador actual usando UserSession
   Future<Map<String, dynamic>> actualizarFotoPerfilActual(
       String fotoBase64,
       ) async {
@@ -120,7 +117,6 @@ class FotoPerfilController {
     }
   }
 
-  /// Actualizar foto de perfil usando ID específico
   Future<Map<String, dynamic>> actualizarFotoPerfil(
       int idPersona,
       String fotoBase64,
