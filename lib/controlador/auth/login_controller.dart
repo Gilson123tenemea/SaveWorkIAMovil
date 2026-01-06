@@ -34,14 +34,16 @@ class LoginController {
     final session = UserSession();
 
     session.idSupervisor = data['id_supervisor'];
-    session.idEmpresaSupervisor = data['id_empresa'];
+    session.idPersona = data['id_persona'];
+    session.idEmpresaSupervisor = data['id_empresa_supervisor'];
     session.nombreEmpresa = data['empresa'];
     session.nombre = data['nombre'];
     session.correo = data['correo'];
     session.rol = data['rol'];
 
     print("✅ Sesión Supervisor guardada:");
-    print("   ID: ${session.idSupervisor}");
+    print("   ID Supervisor: ${session.idSupervisor}");
+    print("   ID Persona: ${session.idPersona}");
     print("   Empresa ID: ${session.idEmpresaSupervisor}");
     print("   Empresa: ${session.nombreEmpresa}");
   }

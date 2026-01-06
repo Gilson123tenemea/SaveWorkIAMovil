@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../sesion/user_session.dart';
 import '../../../controlador/supervisor/perfil_supervisor_controller.dart';
 import '../../../controlador/supervisor/cambio_contra_controller.dart';
+import '../../../controlador/auth/foto_perfil_controller.dart'; // ✅ IMPORTAR
 
 class PerfilSupervisorPage extends StatefulWidget {
   const PerfilSupervisorPage({super.key});
@@ -17,8 +18,9 @@ class PerfilSupervisorPage extends StatefulWidget {
 
 class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
   final PerfilSupervisorController controller = PerfilSupervisorController();
-  final CambioContraController cambioContraController =
-  CambioContraController();
+  final CambioContraController cambioContraController = CambioContraController();
+  final FotoPerfilController _fotoController = FotoPerfilController(); // ✅ AGREGAR
+  final ImagePicker _imagePicker = ImagePicker(); // ✅ USAR CONSISTENTE
 
   late Future<Map<String, dynamic>> futurePerfil;
   bool editMode = false;
@@ -28,6 +30,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
   bool isChangingPassword = false;
   bool showNewPassword = false;
   bool showConfirmPassword = false;
+  bool isUpdatingFoto = false; // ✅ AGREGAR PARA LOADING DE FOTO
 
   Map<String, dynamic>? perfilData;
 
@@ -44,7 +47,8 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
   String? nuevaContraseaError;
   String? confirmarContraseaError;
 
-  String? selectedImagePath;
+  File? _imagenSeleccionada; // ✅ CAMBIAR DE STRING? A FILE?
+  String? _fotoBase64Preparada; // ✅ AGREGAR
 
   @override
   void initState() {
@@ -80,7 +84,112 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     telefonoController.text = data['telefono'] ?? '';
   }
 
-  // Validaciones de contraseña
+  // =============================
+  // MÉTODOS PARA FOTO DE PERFIL
+  // =============================
+
+  Future<void> _seleccionarImagenGaleria() async {
+    try {
+      final imagen = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (imagen != null) {
+        setState(() {
+          _imagenSeleccionada = File(imagen.path);
+        });
+        await _prepararFotoPerfil();
+      }
+    } catch (e) {
+      _mostrarError('Error al seleccionar imagen: $e');
+    }
+  }
+
+  Future<void> _seleccionarImagenCamara() async {
+    try {
+      final imagen = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+
+      if (imagen != null) {
+        setState(() {
+          _imagenSeleccionada = File(imagen.path);
+        });
+        await _prepararFotoPerfil();
+      }
+    } catch (e) {
+      _mostrarError('Error al tomar foto: $e');
+    }
+  }
+
+  void _mostrarOpcionesImagen() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Tomar foto'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _seleccionarImagenCamara();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.image),
+                title: const Text('Seleccionar de galería'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _seleccionarImagenGaleria();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _prepararFotoPerfil() async {
+    if (_imagenSeleccionada == null) return;
+
+    try {
+      final bytes = await _imagenSeleccionada!.readAsBytes();
+      _fotoBase64Preparada = base64Encode(bytes);
+      print('📸 Foto preparada para guardar: ${_fotoBase64Preparada!.length} bytes');
+    } catch (e) {
+      _mostrarError("Error al preparar foto: $e");
+    }
+  }
+
+  void _mostrarError(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _mostrarExito(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // =============================
+  // VALIDACIONES DE CONTRASEÑA
+  // =============================
+
   Map<String, bool> _getPasswordValidations() {
     final password = nuevaContraseaController.text;
     return {
@@ -97,49 +206,9 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     return validations.values.every((v) => v);
   }
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      selectedImagePath = pickedFile.path;
-
-      final bytes = await File(pickedFile.path).readAsBytes();
-      final base64Image = base64Encode(bytes);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Subiendo foto...')),
-      );
-
-      final result = await controller.actualizarFoto(
-        perfilData!['id_persona'],
-        base64Image,
-      );
-
-      if (!mounted) return;
-
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Foto actualizada correctamente'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        setState(() {
-          perfilData!['foto'] = base64Image;
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['mensaje'] ?? 'Error al actualizar foto'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+  // =============================
+  // GUARDAR CAMBIOS
+  // =============================
 
   Future<void> _handleSave() async {
     final nombre = nombreController.text.trim();
@@ -147,18 +216,13 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     final correo = correoController.text.trim();
     final telefono = telefonoController.text.trim();
 
-    // 🔹 Campos obligatorios
-    if (nombre.isEmpty ||
-        apellido.isEmpty ||
-        correo.isEmpty ||
-        telefono.isEmpty) {
+    if (nombre.isEmpty || apellido.isEmpty || correo.isEmpty || telefono.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Completa todos los campos')),
       );
       return;
     }
 
-    // 🔹 Nombre y apellido (solo letras, min 2, max 50)
     final soloLetrasRegex = RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{2,50}$');
 
     if (!soloLetrasRegex.hasMatch(nombre)) {
@@ -173,14 +237,12 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     if (!soloLetrasRegex.hasMatch(apellido)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-          Text('El apellido solo debe contener letras (2–50 caracteres)'),
+          content: Text('El apellido solo debe contener letras (2–50 caracteres)'),
         ),
       );
       return;
     }
 
-    // 🔹 Teléfono (solo números, longitud exacta)
     if (!RegExp(r'^\d{10}$').hasMatch(telefono)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -190,7 +252,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       return;
     }
 
-    // 🔹 Correo electrónico (formato válido)
     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
     if (!emailRegex.hasMatch(correo)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -199,7 +260,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       return;
     }
 
-    // 🔹 Enviar al backend
+    // ✅ ACTUALIZAR DATOS PERSONALES
     final result = await controller.actualizar(
       UserSession().idSupervisor!,
       nombre,
@@ -210,31 +271,57 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
 
     if (!mounted) return;
 
-    // 🔹 Respuesta
-    if (result['success']) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Perfil actualizado correctamente'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      setState(() {
-        perfilData!['nombre'] = nombre;
-        perfilData!['apellido'] = apellido;
-        perfilData!['correo'] = correo;
-        perfilData!['telefono'] = telefono;
-        editMode = false;
-      });
-    } else {
+    if (!result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['mensaje'] ?? 'Error al guardar'),
           backgroundColor: Colors.red,
         ),
       );
+      return;
     }
-  }
 
+    // ✅ SI HAY FOTO NUEVA, SUBIRLA
+    if (_fotoBase64Preparada != null) {
+      final idPersona = UserSession().idPersona;
+      if (idPersona != null) {
+        print('📤 Subiendo foto para ID Persona: $idPersona');
+        final resultado = await _fotoController.actualizarFotoPerfilActual(_fotoBase64Preparada!);
+
+        if (!resultado['success']) {
+          _mostrarError("Datos guardados pero hay error con foto: ${resultado['mensaje']}");
+        } else {
+          print('✅ Foto guardada correctamente');
+          perfilData!['foto'] = _fotoBase64Preparada;
+        }
+      }
+    }
+
+    // ✅ ACTUALIZAR UI
+    setState(() {
+      perfilData!['nombre'] = nombre;
+      perfilData!['apellido'] = apellido;
+      perfilData!['correo'] = correo;
+      perfilData!['telefono'] = telefono;
+
+      if (_fotoBase64Preparada != null) {
+        perfilData!['foto'] = _fotoBase64Preparada;
+        print('✅ Foto actualizada en UI');
+      }
+
+      editMode = false;
+      _imagenSeleccionada = null;
+      _fotoBase64Preparada = null;
+      isUpdatingFoto = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✓ Perfil actualizado correctamente'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
 
   void _handleCancel() {
     if (perfilData != null) {
@@ -242,8 +329,14 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     }
     setState(() {
       editMode = false;
+      _imagenSeleccionada = null;
+      _fotoBase64Preparada = null;
     });
   }
+
+  // =============================
+  // CAMBIO DE CONTRASEÑA
+  // =============================
 
   Future<void> _handleRequestToken() async {
     if (correoController.text.isEmpty) {
@@ -304,7 +397,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       confirmarContraseaError = null;
     });
 
-    // 🔹 Validaciones locales (NO se tocan)
     if (tokenController.text.trim().isEmpty) {
       setState(() => tokenError = "El token es obligatorio");
       return;
@@ -321,14 +413,12 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     }
 
     if (nuevaContraseaController.text.length < 8) {
-      setState(() => nuevaContraseaError =
-      "La contraseña debe tener mínimo 8 caracteres");
+      setState(() => nuevaContraseaError = "La contraseña debe tener mínimo 8 caracteres");
       return;
     }
 
     if (!_isPasswordValid()) {
-      setState(() => nuevaContraseaError =
-      "La contraseña debe tener mayúsculas, minúsculas, números y caracteres especiales (@\$!%*#?&)");
+      setState(() => nuevaContraseaError = "La contraseña debe tener mayúsculas, minúsculas, números y caracteres especiales (@\$!%*#?&)");
       return;
     }
 
@@ -347,7 +437,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     setState(() => isChangingPassword = true);
 
     try {
-      // ✅ SI EL BACKEND FALLA → AQUÍ LANZA EXCEPTION
       await cambioContraController.confirmar(
         tokenController.text,
         nuevaContraseaController.text,
@@ -356,7 +445,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
 
       if (!mounted) return;
 
-      // ✅ SOLO SI TODO FUE CORRECTO
       Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -369,10 +457,8 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
 
       _closePasswordModal();
     } catch (e) {
-      final errorMessage =
-      e.toString().replaceAll('Exception: ', '').toLowerCase();
+      final errorMessage = e.toString().replaceAll('Exception: ', '').toLowerCase();
 
-      // 🔴 ERRORES DE TOKEN
       if (errorMessage.contains('token')) {
         setState(() {
           if (errorMessage.contains('expirado')) {
@@ -383,19 +469,13 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
             tokenError = "Token incorrecto o inválido";
           }
         });
-      }
-
-      // 🔴 ERRORES DE CONTRASEÑA
-      else if (errorMessage.contains('contraseña') ||
+      } else if (errorMessage.contains('contraseña') ||
           errorMessage.contains('mayúscula') ||
           errorMessage.contains('minúscula') ||
           errorMessage.contains('número') ||
           errorMessage.contains('caracter')) {
         setState(() => nuevaContraseaError = errorMessage);
-      }
-
-      // 🔴 OTROS ERRORES
-      else {
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -424,6 +504,10 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       confirmarContraseaError = null;
     });
   }
+
+  // =============================
+  // BUILD UI
+  // =============================
 
   @override
   Widget build(BuildContext context) {
@@ -497,8 +581,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                     top: 40,
                     right: 12,
                     child: IconButton(
-                      icon: const Icon(Icons.logout,
-                          color: Colors.white, size: 26),
+                      icon: const Icon(Icons.logout, color: Colors.white, size: 26),
                       onPressed: () {
                         UserSession().clear();
                         Navigator.pushReplacementNamed(context, "/login");
@@ -509,39 +592,66 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
               ),
               const SizedBox(height: 20),
 
-              // FOTO + NOMBRE
+              // ✅ FOTO DE PERFIL CON OPCIÓN DE CAMBIAR
               Stack(
+                alignment: Alignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 45,
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: perfilData!["foto"] != null
-                        ? MemoryImage(base64Decode(perfilData!["foto"]))
-                        : null,
-                    child: perfilData!["foto"] == null
-                        ? const Icon(Icons.person, size: 45)
-                        : null,
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xff073375).withOpacity(0.2),
+                          blurRadius: 15,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      radius: 45,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: _imagenSeleccionada != null
+                          ? FileImage(_imagenSeleccionada!)
+                          : (perfilData!["foto"] != null
+                          ? MemoryImage(base64Decode(perfilData!["foto"]))
+                          : null),
+                      child: (_imagenSeleccionada == null && perfilData!["foto"] == null)
+                          ? const Icon(Icons.person, size: 45, color: Color(0xff073375))
+                          : null,
+                    ),
                   ),
                   if (editMode)
                     Positioned(
                       bottom: 0,
                       right: 0,
                       child: GestureDetector(
-                        onTap: _pickImage,
+                        onTap: isUpdatingFoto ? null : _mostrarOpcionesImagen,
                         child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xff073375),
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Color(0xff073375),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black26,
-                                blurRadius: 4,
+                                blurRadius: 8,
                               ),
                             ],
                           ),
-                          padding: const EdgeInsets.all(8),
-                          child: const Icon(Icons.camera_alt,
-                              color: Colors.white, size: 20),
+                          child: isUpdatingFoto
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                              : const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                       ),
                     ),
@@ -563,6 +673,41 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                 Text(
                   perfilData!["correo"],
                   style: const TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+
+              // ✅ INDICADOR DE IMAGEN SELECCIONADA
+              if (_imagenSeleccionada != null && editMode)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.blue.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(
+                          Icons.check_circle,
+                          color: Colors.blue,
+                          size: 16,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          "Imagen seleccionada",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
 
               const SizedBox(height: 20),
@@ -614,21 +759,16 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           if (!editMode) ...[
-                            SizedBox(
-                              width: 100,
-
-                            ),
+                            const SizedBox(width: 100),
                             const SizedBox(width: 10),
                             SizedBox(
                               width: 100,
                               child: ElevatedButton(
-                                onPressed: () =>
-                                    setState(() => editMode = true),
+                                onPressed: () => setState(() => editMode = true),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xff073375),
                                 ),
-                                child: const Text("Editar",
-                                    style: TextStyle(color: Colors.white)),
+                                child: const Text("Editar", style: TextStyle(color: Colors.white)),
                               ),
                             ),
                           ] else ...[
@@ -639,8 +779,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.grey.shade300,
                                 ),
-                                child: const Text("Cancelar",
-                                    style: TextStyle(color: Colors.black)),
+                                child: const Text("Cancelar", style: TextStyle(color: Colors.black)),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -651,8 +790,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xff073375),
                                 ),
-                                child: const Text("Guardar",
-                                    style: TextStyle(color: Colors.white)),
+                                child: const Text("Guardar", style: TextStyle(color: Colors.white)),
                               ),
                             ),
                           ],
@@ -727,7 +865,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                       inputFormatters: _getInputFormatters(e.key),
                       maxLength: _getMaxLength(e.key),
                       keyboardType: _getKeyboardType(e.key),
-
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -755,6 +892,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       ),
     );
   }
+
   List<TextInputFormatter>? _getInputFormatters(String field) {
     switch (field) {
       case "Nombre":
@@ -764,12 +902,10 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
             RegExp(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]"),
           ),
         ];
-
       case "Telefono":
         return [
           FilteringTextInputFormatter.digitsOnly,
         ];
-
       default:
         return null;
     }
@@ -785,20 +921,18 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
         return TextInputType.text;
     }
   }
+
   int? _getMaxLength(String field) {
     switch (field) {
       case "Nombre":
       case "Apellido":
         return 50;
-
       case "Telefono":
-        return 10; // o lo que uses en backend
-
+        return 10;
       default:
         return null;
     }
   }
-
 
   Widget _buildPasswordCard({required VoidCallback onChangePasswordPressed}) {
     return Container(
@@ -849,8 +983,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                     ),
                     TextButton(
                       onPressed: onChangePasswordPressed,
-                      child:
-                      const Text("Cambiar", style: TextStyle(fontSize: 12)),
+                      child: const Text("Cambiar", style: TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -908,7 +1041,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    // Progress Bar
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: ClipRRect(
@@ -1004,7 +1136,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // TOKEN
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1021,18 +1152,14 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                             decoration: InputDecoration(
                               hintText: "Ingresa el token recibido",
                               border: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               errorText: tokenError,
                               errorBorder: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                    color: Colors.red, width: 1.5),
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Colors.red, width: 1.5),
                               ),
-                              contentPadding:
-                              const EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 12,
                               ),
@@ -1048,8 +1175,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-
-                      // NUEVA CONTRASEÑA
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1067,30 +1192,22 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                             decoration: InputDecoration(
                               hintText: "Mínimo 8 caracteres",
                               border: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               errorText: nuevaContraseaError,
                               errorBorder: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                    color: Colors.red, width: 1.5),
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Colors.red, width: 1.5),
                               ),
-                              contentPadding:
-                              const EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 12,
                               ),
                               suffixIcon: IconButton(
-                                icon: Icon(showNewPassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off),
+                                icon: Icon(showNewPassword ? Icons.visibility : Icons.visibility_off),
                                 onPressed: () {
                                   setModalState(() {
-                                    setState(() =>
-                                    showNewPassword =
-                                    !showNewPassword);
+                                    setState(() => showNewPassword = !showNewPassword);
                                   });
                                 },
                               ),
@@ -1098,16 +1215,13 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                             onChanged: (_) {
                               if (nuevaContraseaError != null) {
                                 setModalState(() {
-                                  setState(
-                                          () => nuevaContraseaError = null);
+                                  setState(() => nuevaContraseaError = null);
                                 });
                               }
                               setModalState(() {});
                             },
                           ),
-                          // Indicadores de requisitos
-                          if (nuevaContraseaController.text.isNotEmpty &&
-                              nuevaContraseaError == null)
+                          if (nuevaContraseaController.text.isNotEmpty && nuevaContraseaError == null)
                             Padding(
                               padding: const EdgeInsets.only(top: 12),
                               child: Column(
@@ -1138,8 +1252,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-
-                      // CONFIRMAR CONTRASEÑA
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1157,30 +1269,22 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                             decoration: InputDecoration(
                               hintText: "Repite la contraseña",
                               border: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               errorText: confirmarContraseaError,
                               errorBorder: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                    color: Colors.red, width: 1.5),
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Colors.red, width: 1.5),
                               ),
-                              contentPadding:
-                              const EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 12,
                               ),
                               suffixIcon: IconButton(
-                                icon: Icon(showConfirmPassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off),
+                                icon: Icon(showConfirmPassword ? Icons.visibility : Icons.visibility_off),
                                 onPressed: () {
                                   setModalState(() {
-                                    setState(() =>
-                                    showConfirmPassword =
-                                    !showConfirmPassword);
+                                    setState(() => showConfirmPassword = !showConfirmPassword);
                                   });
                                 },
                               ),
@@ -1188,8 +1292,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                             onChanged: (_) {
                               if (confirmarContraseaError != null) {
                                 setModalState(() {
-                                  setState(() =>
-                                  confirmarContraseaError = null);
+                                  setState(() => confirmarContraseaError = null);
                                 });
                               }
                             },
@@ -1197,8 +1300,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                         ],
                       ),
                       const SizedBox(height: 24),
-
-                      // BOTONES
                       Row(
                         children: [
                           Expanded(
@@ -1211,8 +1312,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                                       passwordStep = "request";
                                       tokenController.clear();
                                       nuevaContraseaController.clear();
-                                      confirmarContraseaController
-                                          .clear();
+                                      confirmarContraseaController.clear();
                                       tokenError = null;
                                       nuevaContraseaError = null;
                                       confirmarContraseaError = null;
@@ -1220,11 +1320,9 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                                   });
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                  Colors.grey.shade300,
+                                  backgroundColor: Colors.grey.shade300,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                    BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
                                 child: const Text(
@@ -1250,24 +1348,17 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                                   setModalState(() {});
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                  const Color(0xff073375),
+                                  backgroundColor: const Color(0xff073375),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                    BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
                                 child: isChangingPassword
                                     ? const SizedBox(
                                   height: 24,
                                   width: 24,
-                                  child:
-                                  CircularProgressIndicator(
-                                    valueColor:
-                                    AlwaysStoppedAnimation<
-                                        Color>(
-                                      Colors.white,
-                                    ),
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                     strokeWidth: 2.5,
                                   ),
                                 )
