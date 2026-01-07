@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "446315735374",
+    "project_id": "saveworkia",
+    "storage_bucket": "saveworkia.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:446315735374:android:ac7a42cc650e8cbf5e161f",
+        "android_client_info": {
+          "package_name": "com.example.movil"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDVqYErJBG3lgLu39cfjvhxJ81URnV6jI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
