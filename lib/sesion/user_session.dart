@@ -18,6 +18,7 @@ class UserSession {
   String? correo;
   String? rol;
   String? nombreEmpresa;
+  String? fcmToken;
 
   void clear() {
     idSupervisor = null;
@@ -31,6 +32,7 @@ class UserSession {
     correo = null;
     rol = null;
     nombreEmpresa = null;
+    fcmToken = null;
   }
 
   bool get tieneEmpresa => idEmpresa != null;
