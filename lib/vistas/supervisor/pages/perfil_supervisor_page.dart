@@ -7,7 +7,8 @@ import 'package:flutter/services.dart';
 import '../../../sesion/user_session.dart';
 import '../../../controlador/supervisor/perfil_supervisor_controller.dart';
 import '../../../controlador/supervisor/cambio_contra_controller.dart';
-import '../../../controlador/auth/foto_perfil_controller.dart'; // ✅ IMPORTAR
+import '../../../controlador/auth/foto_perfil_controller.dart';
+import '../../../controlador/auth/login_controller.dart';
 
 class PerfilSupervisorPage extends StatefulWidget {
   const PerfilSupervisorPage({super.key});
@@ -19,8 +20,8 @@ class PerfilSupervisorPage extends StatefulWidget {
 class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
   final PerfilSupervisorController controller = PerfilSupervisorController();
   final CambioContraController cambioContraController = CambioContraController();
-  final FotoPerfilController _fotoController = FotoPerfilController(); // ✅ AGREGAR
-  final ImagePicker _imagePicker = ImagePicker(); // ✅ USAR CONSISTENTE
+  final FotoPerfilController _fotoController = FotoPerfilController();
+  final ImagePicker _imagePicker = ImagePicker();
 
   late Future<Map<String, dynamic>> futurePerfil;
   bool editMode = false;
@@ -30,7 +31,7 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
   bool isChangingPassword = false;
   bool showNewPassword = false;
   bool showConfirmPassword = false;
-  bool isUpdatingFoto = false; // ✅ AGREGAR PARA LOADING DE FOTO
+  bool isUpdatingFoto = false;
 
   Map<String, dynamic>? perfilData;
 
@@ -47,8 +48,8 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
   String? nuevaContraseaError;
   String? confirmarContraseaError;
 
-  File? _imagenSeleccionada; // ✅ CAMBIAR DE STRING? A FILE?
-  String? _fotoBase64Preparada; // ✅ AGREGAR
+  File? _imagenSeleccionada;
+  String? _fotoBase64Preparada;
 
   @override
   void initState() {
@@ -84,9 +85,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     telefonoController.text = data['telefono'] ?? '';
   }
 
-  // =============================
-  // MÉTODOS PARA FOTO DE PERFIL
-  // =============================
 
   Future<void> _seleccionarImagenGaleria() async {
     try {
@@ -186,9 +184,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     );
   }
 
-  // =============================
-  // VALIDACIONES DE CONTRASEÑA
-  // =============================
 
   Map<String, bool> _getPasswordValidations() {
     final password = nuevaContraseaController.text;
@@ -206,9 +201,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     return validations.values.every((v) => v);
   }
 
-  // =============================
-  // GUARDAR CAMBIOS
-  // =============================
 
   Future<void> _handleSave() async {
     final nombre = nombreController.text.trim();
@@ -260,7 +252,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       return;
     }
 
-    // ✅ ACTUALIZAR DATOS PERSONALES
     final result = await controller.actualizar(
       UserSession().idSupervisor!,
       nombre,
@@ -281,7 +272,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       return;
     }
 
-    // ✅ SI HAY FOTO NUEVA, SUBIRLA
     if (_fotoBase64Preparada != null) {
       final idPersona = UserSession().idPersona;
       if (idPersona != null) {
@@ -297,7 +287,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
       }
     }
 
-    // ✅ ACTUALIZAR UI
     setState(() {
       perfilData!['nombre'] = nombre;
       perfilData!['apellido'] = apellido;
@@ -334,9 +323,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     });
   }
 
-  // =============================
-  // CAMBIO DE CONTRASEÑA
-  // =============================
 
   Future<void> _handleRequestToken() async {
     if (correoController.text.isEmpty) {
@@ -505,9 +491,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
     });
   }
 
-  // =============================
-  // BUILD UI
-  // =============================
 
   @override
   Widget build(BuildContext context) {
@@ -582,9 +565,36 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                     right: 12,
                     child: IconButton(
                       icon: const Icon(Icons.logout, color: Colors.white, size: 26),
-                      onPressed: () {
-                        UserSession().clear();
-                        Navigator.pushReplacementNamed(context, "/login");
+                      onPressed: () async {
+                        final confirmar = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Cerrar Sesión'),
+                            content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancelar'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text(
+                                  'Cerrar Sesión',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirmar == true) {
+                          final controller = LoginController();
+                          await controller.logout();
+
+                          if (!mounted) return;
+
+                          Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                        }
                       },
                     ),
                   ),
@@ -675,7 +685,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
                   style: const TextStyle(fontSize: 14, color: Colors.black54),
                 ),
 
-              // ✅ INDICADOR DE IMAGEN SELECCIONADA
               if (_imagenSeleccionada != null && editMode)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -712,7 +721,6 @@ class _PerfilSupervisorPageState extends State<PerfilSupervisorPage> {
 
               const SizedBox(height: 20),
 
-              // CONTENIDO
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16),

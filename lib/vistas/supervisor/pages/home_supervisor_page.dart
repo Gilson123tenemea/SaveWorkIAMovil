@@ -236,29 +236,34 @@ class _HomeSupervisorPageState extends State<HomeSupervisorPage> {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            radius: 22,
+            radius: 20,
             backgroundColor: color.withOpacity(0.18),
-            child: Icon(icon, color: color, size: 28),
+            child: Icon(icon, color: color, size: 26),
           ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+          const SizedBox(height: 10),
+          Flexible(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const Spacer(),
           Text(
             value,
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 24, // ← Reducido de 26 a 24
               fontWeight: FontWeight.bold,
               color: color,
             ),

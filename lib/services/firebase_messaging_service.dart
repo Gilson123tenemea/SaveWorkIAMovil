@@ -74,14 +74,21 @@ class FirebaseMessagingService {
   }
 
   static Future<void> _showLocalNotification(RemoteMessage message) async {
+    // 🔥 NOTIFICACIÓN MEJORADA PARA FALTAS DE EQUIPO
+    final title = message.notification?.title ?? '⚠️ Notificación';
+    final body = message.notification?.body ?? '';
+
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
     AndroidNotificationDetails(
-      'high_importance_channel',
-      'High Importance Notifications',
-      channelDescription: 'This channel is used for important notifications.',
+      'notificaciones_inspector',
+      'Notificaciones del Inspector',
+      channelDescription:
+      'Notificaciones de faltas de equipo de seguridad',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
+      enableVibration: true,
+      playSound: true,
     );
 
     const NotificationDetails platformChannelSpecifics =
@@ -89,16 +96,18 @@ class FirebaseMessagingService {
 
     await _flutterLocalNotificationsPlugin.show(
       message.hashCode,
-      message.notification?.title ?? 'Notificación',
-      message.notification?.body ?? '',
+      title,
+      body,
       platformChannelSpecifics,
       payload: message.data.toString(),
     );
+
+    print('✅ Notificación local mostrada');
   }
 
   static void _handleNotificationTap(RemoteMessage message) {
     print('📨 Manejando notificación: ${message.data}');
-    // Aquí navegar según el contenido si es necesario
+
   }
 
   /// 📱 Obtiene el token de FCM
@@ -145,7 +154,8 @@ class FirebaseMessagingService {
     print('✅ [3/3] ID inspector disponible: ${session.idInspector}');
 
     // ✅ TODOS LOS VALIDADORES PASARON
-    print('\n✅ ✅ ✅ VALIDACIÓN COMPLETA - REGISTRANDO TOKEN ✅ ✅ ✅\n');
+    print(
+        '\n✅ ✅ ✅ VALIDACIÓN COMPLETA - REGISTRANDO TOKEN ✅ ✅ ✅\n');
 
     try {
       String? token = await getFCMToken();
@@ -171,7 +181,8 @@ class FirebaseMessagingService {
   }
 
   /// 🔄 Re-registrar token si es inspector (cuando se renueva)
-  static Future<void> _reRegistrarTokenSiEsInspector(String newToken) async {
+  static Future<void> _reRegistrarTokenSiEsInspector(
+      String newToken) async {
     final session = UserSession();
 
     // Solo re-registrar si es inspector

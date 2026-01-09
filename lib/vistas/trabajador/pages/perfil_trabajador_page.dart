@@ -7,6 +7,7 @@ import '../../../sesion/user_session.dart';
 import '../../../servicios/trabajador_api.dart';
 import '../../../controlador/auth/foto_perfil_controller.dart';
 import '../../../controlador/supervisor/cambio_contra_controller.dart';
+import '../../../controlador/auth/login_controller.dart';
 
 class PerfilTrabajadorPage extends StatefulWidget {
   const PerfilTrabajadorPage({super.key});
@@ -1011,18 +1012,43 @@ class _PerfilTrabajadorPageState extends State<PerfilTrabajadorPage> {
                   ),
                 ),
                 Positioned(
-                  top: 30,
+                  top: 40,
                   right: 12,
                   child: IconButton(
-                    icon: const Icon(
-                      Icons.logout,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                    tooltip: "Cerrar sesión",
-                    onPressed: () {
-                      UserSession().clear();
-                      Navigator.pushReplacementNamed(context, "/login");
+                    icon: const Icon(Icons.logout, color: Colors.white, size: 26),
+                    onPressed: () async {
+                      // Mostrar diálogo de confirmación
+                      final confirmar = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Cerrar Sesión'),
+                          content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancelar'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text(
+                                'Cerrar Sesión',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmar == true) {
+                        // Cerrar sesión usando el LoginController
+                        final controller = LoginController();
+                        await controller.logout();
+
+                        if (!mounted) return;
+
+                        // Redirigir al login eliminando todo el historial
+                        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                      }
                     },
                   ),
                 ),

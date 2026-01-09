@@ -31,30 +31,27 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => loading = false);
 
-    final rol = result["rol"] ?? result["role"];
-    UserSession().rol = rol;
-    UserSession().nombre = result["nombre"];
-    UserSession().correo = result["correo"];
+    if (result.containsKey("error")) {
+      setState(() => errorMsg = result["error"]);
+      return;
+    }
 
-    if (rol == null) {
+    final session = UserSession();
+
+    String ruta;
+    if (session.rol == 'supervisor') {
+      ruta = '/supervisor/menu';
+    } else if (session.rol == 'inspector') {
+      ruta = '/inspector/menu';
+    } else if (session.rol == 'trabajador') {
+      ruta = '/trabajador/menu';
+    } else {
       setState(() => errorMsg = "Rol no reconocido");
       return;
     }
 
-    if (rol == "supervisor") {
-      UserSession().idSupervisor = result["id_supervisor"];
-      UserSession().idEmpresaSupervisor = result["id_empresa_supervisor"];
-      Navigator.pushReplacementNamed(context, "/supervisor/menu");
-    } else if (rol == "inspector") {
-      UserSession().idInspector = result["id_inspector"];
-      Navigator.pushReplacementNamed(context, "/inspector/menu");
-    } else if (rol == "trabajador") {
-      UserSession().idTrabajador = result["id_trabajador"];
-      UserSession().idEmpresaTrabajador = result["id_empresa_trabajador"];
-      Navigator.pushReplacementNamed(context, "/trabajador/menu");
-    } else {
-      setState(() => errorMsg = "Credenciales Incorrectas: $rol");
-    }
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, ruta);
   }
 
   @override
@@ -67,7 +64,6 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // CONTENEDOR PRINCIPAL CON DISEÑO PROFESIONAL
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -84,7 +80,6 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // HEADER CON GRADIENTE
                     Container(
                       width: 80,
                       height: 80,
@@ -97,8 +92,7 @@ class _LoginPageState extends State<LoginPage> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xff073375)
-                                .withOpacity(0.3),
+                            color: const Color(0xff073375).withOpacity(0.3),
                             blurRadius: 15,
                             offset: const Offset(0, 6),
                           ),
@@ -113,7 +107,6 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 24),
 
-                    // TITULO
                     const Text(
                       "SaveWorkIA",
                       style: TextStyle(
@@ -125,7 +118,6 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 8),
 
-                    // SUBTITULO
                     const Text(
                       "Inicio de sesión seguro",
                       style: TextStyle(
@@ -137,7 +129,6 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 32),
 
-                    // CORREO
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.grey.withOpacity(0.05),
@@ -169,7 +160,6 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 18),
 
-                    // CONTRASEÑA
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.grey.withOpacity(0.05),
@@ -212,7 +202,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
 
-                    // MENSAJE DE ERROR
                     if (errorMsg != null) ...[
                       const SizedBox(height: 16),
                       Container(
@@ -250,7 +239,6 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 30),
 
-                    // BOTON DE INGRESO
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -291,7 +279,6 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 20),
 
-                    // INFO ADICIONAL
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
