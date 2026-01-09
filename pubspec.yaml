@@ -3,7 +3,6 @@ description:
 
 publish_to:
 
-
 version: 1.0.0+1
 
 environment:
@@ -23,7 +22,6 @@ dependencies:
   animated_text_kit: ^4.2.2
   lottie: ^3.1.0
 
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -33,13 +31,14 @@ dev_dependencies:
   image_picker: ^1.0.0
   provider: ^6.1.1
   fl_chart: ^0.65.0
-
-
-
   flutter_lints: ^5.0.0
 
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "android/imagenes/logo_app.png"
+
 flutter:
-
   uses-material-design: true
-
-
