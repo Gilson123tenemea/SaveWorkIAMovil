@@ -20,6 +20,9 @@ dependencies:
   firebase_messaging: ^15.1.0
   flutter_local_notifications: ^18.0.0
   shared_preferences: ^2.2.2
+  animated_text_kit: ^4.2.2
+  lottie: ^3.1.0
+
 
 dev_dependencies:
   flutter_test:

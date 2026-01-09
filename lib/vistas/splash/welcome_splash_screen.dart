@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../sesion/user_session.dart';
 
 class WelcomeSplashScreen extends StatefulWidget {
@@ -23,10 +23,10 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _rippleAnimation;
 
-  final Color primaryBlue = const Color(0xFF1976D2); // Azul principal
-  final Color accentBlue = const Color(0xFF2196F3); // Azul acento
-  final Color darkBlue = const Color(0xFF0D47A1); // Azul oscuro
-  final Color lightBlue = const Color(0xFF64B5F6); // Azul claro
+  final Color primaryBlue = const Color(0xFF1976D2);
+  final Color accentBlue = const Color(0xFF2196F3);
+  final Color darkBlue = const Color(0xFF0D47A1);
+  final Color lightBlue = const Color(0xFF64B5F6);
 
   @override
   void initState() {
@@ -93,25 +93,44 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
   }
 
   Future<void> _startSequence() async {
+    // 1️⃣ Mostrar logo con animación
     await Future.delayed(const Duration(milliseconds: 300));
     _logoController.forward();
 
+    // 2️⃣ Mostrar texto después del logo
     await Future.delayed(const Duration(milliseconds: 1000));
     _textController.forward();
 
+    // 3️⃣ Mantener la pantalla visible
     await Future.delayed(const Duration(milliseconds: 1500));
 
-    await _verificarSesion();
+    // 4️⃣ Verificar términos y sesión
+    await _verificarEstadoApp();
   }
 
-  Future<void> _verificarSesion() async {
-    final session = UserSession();
-    bool tieneSesion = await session.cargarSesion();
+  Future<void> _verificarEstadoApp() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 🆕 VERIFICAR SI YA ACEPTÓ TÉRMINOS
+    final termsAccepted = prefs.getBool('terms_accepted') ?? false;
+
+    print('📋 Términos aceptados: $termsAccepted');
 
     // Fade out
     await _fadeController.forward();
 
     if (!mounted) return;
+
+    // Si NO ha aceptado términos, ir a pantalla de términos
+    if (!termsAccepted) {
+      print('⚠️ Primera vez - Mostrando términos y condiciones');
+      Navigator.pushReplacementNamed(context, '/terms');
+      return;
+    }
+
+    // Si YA aceptó términos, verificar sesión como antes
+    final session = UserSession();
+    bool tieneSesion = await session.cargarSesion();
 
     String ruta;
     if (tieneSesion) {
@@ -153,31 +172,19 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
         opacity: _fadeAnimation,
         child: Stack(
           children: [
-            // 🌊 Ondas de fondo animadas
             _buildAnimatedRipples(),
-
-            // 📱 Contenido principal
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // 🛡️ Logo principal con animación
                   _buildAnimatedLogo(),
-
                   const SizedBox(height: 40),
-
-                  // 📝 Texto animado
                   _buildAnimatedText(),
-
                   const SizedBox(height: 20),
-
-                  // ⚙️ Iconos de EPP
                   _buildSafetyIcons(),
                 ],
               ),
             ),
-
-            // ⏳ Indicador de carga en la parte inferior
             _buildLoadingIndicator(),
           ],
         ),
@@ -185,7 +192,6 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
     );
   }
 
-  // 🌊 Ondas animadas de fondo
   Widget _buildAnimatedRipples() {
     return AnimatedBuilder(
       animation: _rippleAnimation,
@@ -214,7 +220,6 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
     );
   }
 
-  // 🛡️ Logo animado central
   Widget _buildAnimatedLogo() {
     return AnimatedBuilder(
       animation: _logoController,
@@ -241,7 +246,7 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
                   ),
                 ],
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.shield_outlined,
                 size: 60,
                 color: Colors.white,
@@ -253,7 +258,6 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
     );
   }
 
-  // 📝 Texto animado
   Widget _buildAnimatedText() {
     return FadeTransition(
       opacity: _textOpacity,
@@ -283,13 +287,12 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
     );
   }
 
-  // ⚙️ Iconos de equipos de seguridad
   Widget _buildSafetyIcons() {
     final icons = [
-      Icons.construction, // Casco
-      Icons.shield, // Protección
-      Icons.visibility, // Gafas
-      Icons.back_hand, // Guantes
+      Icons.construction,
+      Icons.shield,
+      Icons.visibility,
+      Icons.back_hand,
     ];
 
     return FadeTransition(
@@ -337,7 +340,6 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
     );
   }
 
-  // ⏳ Indicador de carga
   Widget _buildLoadingIndicator() {
     return Positioned(
       bottom: 60,
