@@ -16,6 +16,7 @@ class _NotificacionesInspectorPageState
   final NotificacionesController _controller = NotificacionesController();
   late Future<List<dynamic>> futureNotificaciones;
   bool _cargando = false;
+  int? _idEvidenciaEnProceso;
 
   @override
   void initState() {
@@ -33,7 +34,10 @@ class _NotificacionesInspectorPageState
   }
 
   Future<void> _marcarComoRevisada(int idEvidencia) async {
-    setState(() => _cargando = true);
+    setState(() {
+      _cargando = true;
+      _idEvidenciaEnProceso = idEvidencia;
+    });
     try {
       await _controller.marcarComoRevisada(idEvidencia);
       _cargarNotificaciones();
@@ -41,7 +45,7 @@ class _NotificacionesInspectorPageState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Notificación marcada como revisada'),
-            backgroundColor: Colors.green,
+            backgroundColor: Color(0xff073375),
             duration: Duration(seconds: 2),
           ),
         );
@@ -57,7 +61,10 @@ class _NotificacionesInspectorPageState
         );
       }
     } finally {
-      setState(() => _cargando = false);
+      setState(() {
+        _cargando = false;
+        _idEvidenciaEnProceso = null;
+      });
     }
   }
 
@@ -68,48 +75,34 @@ class _NotificacionesInspectorPageState
       body: Column(
         children: [
           // 🔷 HEADER
-          Stack(
-            children: [
-              Container(
-                height: 110,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xff073375), Color(0xff073375)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(5),
-                    bottomRight: Radius.circular(5),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+          Container(
+            height: 100,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xff073375), Color(0xff0a4a9f)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Text(
+                "Notificaciones",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const Positioned(
-                top: 60,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Text(
-                    "Notificaciones",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-
-          const SizedBox(height: 20),
 
           // 📋 CONTENIDO DE NOTIFICACIONES
           Expanded(
@@ -142,6 +135,7 @@ class _NotificacionesInspectorPageState
                           "Error al cargar notificaciones",
                           style: TextStyle(
                             fontSize: 16,
+                            fontWeight: FontWeight.w600,
                             color: Colors.red[700],
                           ),
                         ),
@@ -198,24 +192,22 @@ class _NotificacionesInspectorPageState
                     _cargarNotificaciones();
                     await Future.delayed(const Duration(seconds: 1));
                   },
+                  color: const Color(0xff073375),
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                     children: [
                       // SECCIÓN PENDIENTES
                       if (pendientes.isNotEmpty) ...[
                         _buildSeccionTitulo(
-                          "Pendientes",
+                          "Pendientes de Revisión",
                           pendientes.length,
-                          Colors.orange,
+                          const Color(0xff073375),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         ...pendientes.map(
-                              (notif) => _buildNotificacionCard(
-                            notif,
-                            esPendiente: true,
-                          ),
+                              (notif) => _buildNotificacionCard(notif, true),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 32),
                       ],
 
                       // SECCIÓN REVISADAS
@@ -225,12 +217,9 @@ class _NotificacionesInspectorPageState
                           revisadas.length,
                           Colors.green,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         ...revisadas.map(
-                              (notif) => _buildNotificacionCard(
-                            notif,
-                            esPendiente: false,
-                          ),
+                              (notif) => _buildNotificacionCard(notif, false),
                         ),
                         const SizedBox(height: 20),
                       ],
@@ -250,34 +239,36 @@ class _NotificacionesInspectorPageState
     return Row(
       children: [
         Container(
-          width: 4,
-          height: 24,
+          width: 5,
+          height: 28,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(3),
           ),
         ),
-        const SizedBox(width: 10),
-        Text(
-          titulo,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xff073375),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            titulo,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Color(0xff073375),
+              letterSpacing: 0.3,
+            ),
           ),
         ),
-        const SizedBox(width: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             cantidad.toString(),
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
               color: color,
             ),
           ),
@@ -287,56 +278,61 @@ class _NotificacionesInspectorPageState
   }
 
   // 🎴 TARJETA DE NOTIFICACIÓN
-  Widget _buildNotificacionCard(Map<String, dynamic> notif,
-      {required bool esPendiente}) {
+  Widget _buildNotificacionCard(Map<String, dynamic> notif, bool esPendiente) {
+    final idNotif = notif['id'];
+    final isLoading = _cargando && _idEvidenciaEnProceso == idNotif;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: esPendiente ? Colors.orange[50] : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: esPendiente
-              ? Colors.orange.withOpacity(0.3)
-              : Colors.grey.withOpacity(0.2),
-          width: 1.5,
+              ? const Color(0xff073375).withOpacity(0.15)
+              : Colors.grey.withOpacity(0.12),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // HEADER DE LA NOTIFICACIÓN
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: esPendiente
-                  ? Colors.orange.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.05),
+                  ? const Color(0xff073375).withOpacity(0.06)
+                  : Colors.green.withOpacity(0.04),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+                topLeft: Radius.circular(14),
+                topRight: Radius.circular(14),
               ),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: esPendiente ? Colors.orange : Colors.green,
-                    borderRadius: BorderRadius.circular(12),
+                    color: esPendiente
+                        ? const Color(0xff073375)
+                        : Colors.green,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    esPendiente ? Icons.warning_amber : Icons.check_circle,
+                    esPendiente ? Icons.pending_actions : Icons.check_circle,
                     color: Colors.white,
-                    size: 28,
+                    size: 22,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,21 +340,21 @@ class _NotificacionesInspectorPageState
                       Text(
                         esPendiente ? "PENDIENTE" : "REVISADA",
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: esPendiente ? Colors.orange : Colors.green,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        notif['detalle'] ?? 'Sin detalle',
-                        style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: esPendiente
                               ? const Color(0xff073375)
-                              : Colors.black54,
+                              : Colors.green,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        notif['detalle'] ?? 'Sin detalle',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xff1a1a1a),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -372,38 +368,38 @@ class _NotificacionesInspectorPageState
 
           // CONTENIDO DE LA NOTIFICACIÓN
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               children: [
                 _buildInfoRow(
                   Icons.location_on,
                   "Zona",
                   notif['zona'] ?? 'N/A',
-                  Colors.blue,
+                  const Color(0xff2196F3),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 _buildInfoRow(
-                  Icons.person,
+                  Icons.person_outline,
                   "Trabajador",
                   notif['trabajador'] ?? 'N/A',
-                  Colors.purple,
+                  const Color(0xff9C27B0),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 _buildInfoRow(
-                  Icons.calendar_today,
+                  Icons.access_time,
                   "Fecha",
                   _formatearFecha(notif['fecha']),
-                  Colors.teal,
+                  const Color(0xff009688),
                 ),
                 if (esPendiente) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _cargando
+                      onPressed: isLoading
                           ? null
                           : () => _marcarComoRevisada(notif['id']),
-                      icon: _cargando
+                      icon: isLoading
                           ? const SizedBox(
                         width: 16,
                         height: 16,
@@ -412,22 +408,23 @@ class _NotificacionesInspectorPageState
                           color: Colors.white,
                         ),
                       )
-                          : const Icon(Icons.done_all, size: 20),
+                          : const Icon(Icons.check_circle_outline, size: 18),
                       label: Text(
-                        _cargando ? "Procesando..." : "Marcar como Revisada",
+                        isLoading ? "Procesando..." : "Marcar como Revisada",
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
+                        backgroundColor: const Color(0xff073375),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        elevation: 2,
+                        elevation: 0,
                       ),
                     ),
                   ),
@@ -445,14 +442,14 @@ class _NotificacionesInspectorPageState
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 18, color: color),
+          child: Icon(icon, size: 16, color: color),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 11),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,16 +457,17 @@ class _NotificacionesInspectorPageState
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Colors.black45,
                   fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),

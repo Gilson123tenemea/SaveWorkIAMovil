@@ -160,7 +160,7 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen>
           ),
           const SizedBox(height: 4),
           Text(
-            'SafetyTrack - Seguridad Industrial',
+            'SAVEWORKIA - Seguridad Industrial',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],
@@ -212,7 +212,7 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen>
                   ),
                   _buildSection(
                     '4. Privacidad y Protección de Datos',
-                    'SafetyTrack recopila y almacena información relacionada con:\n\n'
+                    'SAVEWORKIA recopila y almacena información relacionada con:\n\n'
                         '• Datos de identificación de trabajadores\n'
                         '• Registros de uso de equipos de protección\n'
                         '• Reportes de incidentes de seguridad\n'
@@ -237,7 +237,7 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen>
                   ),
                   _buildSection(
                     '7. Limitación de Responsabilidad',
-                    'SafetyTrack es una herramienta de apoyo y no reemplaza las responsabilidades legales de la empresa ni del trabajador en materia de seguridad industrial. El uso de esta aplicación no exime del cumplimiento de normativas de seguridad vigentes.',
+                    'SAVEWORKIA es una herramienta de apoyo y no reemplaza las responsabilidades legales de la empresa ni del trabajador en materia de seguridad industrial. El uso de esta aplicación no exime del cumplimiento de normativas de seguridad vigentes.',
                   ),
                   _buildSection(
                     '8. Modificaciones a los Términos',
