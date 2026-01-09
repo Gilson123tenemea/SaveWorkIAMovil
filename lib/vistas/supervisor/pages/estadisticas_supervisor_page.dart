@@ -715,14 +715,15 @@ class _ZonasDialogState extends State<ZonasDialog> {
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child:
+                    ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
+                        backgroundColor: const Color(0xff073375),
                       ),
                       onPressed: () {
                         setState(() {
                           mostrarListaZonas = true;
-                          selectedZoneId = null; // Limpiar selección
+                          selectedZoneId = null;
                         });
                       },
                       child: const Text(
@@ -732,7 +733,7 @@ class _ZonasDialogState extends State<ZonasDialog> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
+                    )
                   ),
                 ],
               )
@@ -867,9 +868,10 @@ class _ZonasDialogState extends State<ZonasDialog> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
+                    child:
+                    ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
+                        backgroundColor: const Color(0xff073375),
                       ),
                       onPressed: loading ? null : _asignarZona,
                       child: loading
@@ -888,7 +890,8 @@ class _ZonasDialogState extends State<ZonasDialog> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
+                    )
+
                   ),
                 ],
               )
