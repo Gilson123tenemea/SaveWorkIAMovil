@@ -73,7 +73,26 @@ class UserSession {
 
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+
+    final termsAccepted = prefs.getBool('terms_accepted');
+
+    await prefs.remove('idSupervisor');
+    await prefs.remove('idInspector');
+    await prefs.remove('idTrabajador');
+    await prefs.remove('idPersona');
+    await prefs.remove('idEmpresa');
+    await prefs.remove('idEmpresaSupervisor');
+    await prefs.remove('idEmpresaTrabajador');
+    await prefs.remove('nombre');
+    await prefs.remove('correo');
+    await prefs.remove('rol');
+    await prefs.remove('nombreEmpresa');
+    await prefs.remove('fcmToken');
+
+    if (termsAccepted != null && termsAccepted) {
+      await prefs.setBool('terms_accepted', true);
+      print("✅ Términos preservados después de cerrar sesión");
+    }
 
     idSupervisor = null;
     idInspector = null;
@@ -88,7 +107,7 @@ class UserSession {
     nombreEmpresa = null;
     fcmToken = null;
 
-    print("🗑️ Sesión eliminada de SharedPreferences");
+    print("🗑️ Sesión eliminada (términos preservados)");
   }
 
   bool get tieneEmpresa => idEmpresa != null;

@@ -264,7 +264,7 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
       child: Column(
         children: [
           Text(
-            'SafetyTrack',
+            'SAVEWORKIA',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
