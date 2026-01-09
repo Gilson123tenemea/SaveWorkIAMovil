@@ -1,11 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 🔥 PERMISOS NECESARIOS PARA NOTIFICACIONES -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:label="movil"
+        android:label="Save Work IA"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
@@ -30,8 +29,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 🌙 SERVICIO DE FIREBASE MESSAGING - CRÍTICO PARA BACKGROUND -->
-        <!-- SIN ESTO NO LLEGAN NOTIFICACIONES CUANDO APP ESTÁ CERRADA -->
+
         <service
             android:name="com.google.firebase.messaging.FirebaseMessagingService"
             android:exported="false">
@@ -40,13 +38,11 @@
             </intent-filter>
         </service>
 
-        <!-- METADATA DE FLUTTER -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
 
-    <!-- QUERIES PARA PROCESS_TEXT -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
