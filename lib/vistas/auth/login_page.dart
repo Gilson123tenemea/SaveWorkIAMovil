@@ -98,13 +98,14 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.lock_outline,
-                        size: 45,
-                        color: Colors.white,
+                      child: Transform.scale(
+                        scale: 0.8,
+                        child: Image.asset(
+                          'lib/imagenes/logo_movil.png',
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
-
                     const SizedBox(height: 24),
 
                     const Text(

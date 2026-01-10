@@ -23,8 +23,8 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _rippleAnimation;
 
-  final Color primaryBlue = const Color(0xFF1976D2);
-  final Color accentBlue = const Color(0xFF2196F3);
+  final Color primaryBlue = const Color(0xFF0D47A1);
+  final Color accentBlue = const Color(0xFF0D47A1);
   final Color darkBlue = const Color(0xFF0D47A1);
   final Color lightBlue = const Color(0xFF64B5F6);
 
@@ -246,10 +246,15 @@ class _WelcomeSplashScreenState extends State<WelcomeSplashScreen>
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.shield_outlined,
-                size: 60,
-                color: Colors.white,
+              child: Transform.scale(
+                scale: 0.7,
+                child: Image.asset(
+                  'lib/imagenes/logo_movil.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(Icons.error);
+                  },
+                ),
               ),
             ),
           ),

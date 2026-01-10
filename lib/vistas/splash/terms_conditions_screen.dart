@@ -16,8 +16,8 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen>
   final ScrollController _scrollController = ScrollController();
   bool _hasScrolledToBottom = false;
 
-  final Color primaryBlue = const Color(0xFF1976D2);
-  final Color accentBlue = const Color(0xFF2196F3);
+  final Color primaryBlue = const Color(0xFF0D47A1);
+  final Color accentBlue = const Color(0xFF0D47A1);
   final Color darkBlue = const Color(0xFF0D47A1);
 
   @override
@@ -143,10 +143,12 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen>
               ),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.shield_outlined,
-              color: Colors.white,
-              size: 30,
+            child: Transform.scale(
+              scale: 0.7,
+              child: Image.asset(
+                'lib/imagenes/logo_movil.png',
+                fit: BoxFit.contain,
+              ),
             ),
           ),
           const SizedBox(height: 12),
